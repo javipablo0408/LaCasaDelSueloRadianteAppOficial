@@ -6,7 +6,13 @@
         {
             InitializeComponent();
 
-            MainPage = new AppShell();
+            // Verificar si el usuario ya está logueado
+            bool isLoggedIn = Preferences.Get("IsLoggedIn", false);
+
+            if (isLoggedIn)
+            {
+                MainPage = new NavigationPage(new LoginPage());
+            }
         }
     }
 }

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="LaCasaDelSueloRadianteApp.LoginPage"
+             Title="">
+
+    <VerticalStackLayout Spacing="25" 
+                        Padding="30,0" 
+                        VerticalOptions="Center">
+
+        <Image
+            Source="logo.png"
+            SemanticProperties.Description="Cute dot net bot waving hi to you!"
+            HeightRequest="400"
+            HorizontalOptions="Center" />
+
+       
+
+        <Button 
+            x:Name="LoginButton"
+            Text="Iniciar Sesión"
+            SemanticProperties.Hint="Inicia sesión con tu cuenta de Microsoft"
+            Clicked="OnLoginClicked"
+            BackgroundColor= "#001d44"
+            TextColor="White"
+            Padding="40 , 0"
+            HorizontalOptions="Center" />
+
+        <ActivityIndicator 
+            x:Name="LoadingIndicator" 
+            IsRunning="False" 
+            IsVisible="False"
+            HorizontalOptions="Center" />
+
+    </VerticalStackLayout>
+</ContentPage>
