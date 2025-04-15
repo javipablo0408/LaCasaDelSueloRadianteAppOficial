@@ -6,12 +6,18 @@
         {
             InitializeComponent();
 
-            // Verificar si el usuario ya está logueado
+            Preferences.Clear();//BORRALO LUEGO 
+
+            // Verificar si el usuario está logueado
             bool isLoggedIn = Preferences.Get("IsLoggedIn", false);
 
             if (isLoggedIn)
             {
-                MainPage = new NavigationPage(new LoginPage());
+                MainPage = new AppShell(); // Navegación con barra de pestañas
+            }
+            else
+            {
+                MainPage = new NavigationPage(new LoginPage()); // Página de login
             }
         }
     }

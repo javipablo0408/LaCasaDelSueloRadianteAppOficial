@@ -1,15 +1,34 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<Shell
-    x:Class="LaCasaDelSueloRadianteApp.AppShell"
-    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:local="clr-namespace:LaCasaDelSueloRadianteApp"
-    Shell.FlyoutBehavior="Disabled"
-    Title="LaCasaDelSueloRadianteApp">
+<?xml version="1.0" encoding="utf-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:local="clr-namespace:LaCasaDelSueloRadianteApp"
+       x:Class="LaCasaDelSueloRadianteApp.AppShell">
 
-    <ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
+    <!-- Define la barra de pestañas -->
+    <TabBar>
+        <!-- Página Principal -->
+        <Tab Title="Inicio" Icon="home_icon.png">
+            <ShellContent ContentTemplate="{DataTemplate local:MainPage}" />
+        </Tab>
 
+        <!-- Página de Agregar -->
+        <Tab Title="Agregar" Icon="add_icon.png">
+            <ShellContent ContentTemplate="{DataTemplate local:AgregarPage}" />
+        </Tab>
+
+        <!-- Página de Clientes -->
+        <Tab Title="Clientes" Icon="clients_icon.png">
+            <ShellContent ContentTemplate="{DataTemplate local:ClientesPage}" />
+        </Tab>
+
+        <!-- Página de Historial -->
+        <Tab Title="Historial" Icon="history_icon.png">
+            <ShellContent ContentTemplate="{DataTemplate local:HistorialPage}" />
+        </Tab>
+
+        <!-- Página de Información -->
+        <Tab Title="Información" Icon="info_icon.png">
+            <ShellContent ContentTemplate="{DataTemplate local:InformacionPage}" />
+        </Tab>
+    </TabBar>
 </Shell>

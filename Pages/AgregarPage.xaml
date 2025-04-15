@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="LaCasaDelSueloRadianteApp.AgregarPage"
+             Title="Agregar Servicio">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="15">
+
+            <!-- Cliente -->
+            <Label Text="Cliente" FontSize="18" FontAttributes="Bold" />
+            <Entry x:Name="NombreEntry" Placeholder="Nombre completo" />
+            <Entry x:Name="DireccionEntry" Placeholder="Dirección" />
+            <Entry x:Name="EmailEntry" Placeholder="Email" Keyboard="Email" />
+            <Entry x:Name="TelefonoEntry" Placeholder="Teléfono" Keyboard="Telephone" />
+
+            <!-- Detalles del servicio -->
+            <Label Text="Detalles del Servicio" FontSize="18" FontAttributes="Bold" />
+            <Picker x:Name="TipoServicioPicker" Title="Tipo de servicio">
+                <Picker.ItemsSource>
+                    <x:Array Type="{x:Type x:String}">
+                        <x:String>Test calidad agua</x:String>
+                        <x:String>Revisión periódica</x:String>
+                        <x:String>Tratamiento / limpieza</x:String>
+                        <x:String>Puesta en marcha / aditivar</x:String>
+                        <x:String>Otros</x:String>
+                    </x:Array>
+                </Picker.ItemsSource>
+            </Picker>
+
+            <Picker x:Name="TipoInstalacionPicker" Title="Tipo de instalación">
+                <Picker.ItemsSource>
+                    <x:Array Type="{x:Type x:String}">
+                        <x:String>Suelo radiante</x:String>
+                        <x:String>Radiadores</x:String>
+                        <x:String>Fancoil</x:String>
+                        <x:String>Otros</x:String>
+                    </x:Array>
+                </Picker.ItemsSource>
+            </Picker>
+
+            <Picker x:Name="FuenteCalorPicker" Title="Fuente de calor">
+                <Picker.ItemsSource>
+                    <x:Array Type="{x:Type x:String}">
+                        <x:String>Caldera gas</x:String>
+                        <x:String>Caldera gasoil</x:String>
+                        <x:String>Aerotermia</x:String>
+                        <x:String>Biomasa</x:String>
+                        <x:String>Geotermia</x:String>
+                        <x:String>Otros</x:String>
+                    </x:Array>
+                </Picker.ItemsSource>
+            </Picker>
+
+            <!-- Calidad del agua -->
+            <Label Text="Calidad del Agua" FontSize="18" FontAttributes="Bold" />
+
+            <!-- PH -->
+            <Label Text="pH" />
+            <Entry x:Name="PhEntry" Placeholder="Valor de pH" Keyboard="Numeric" />
+            <Button Text="Adjuntar Foto" Clicked="OnAdjuntarPhFotoClicked" />
+
+            <!-- Conductividad -->
+            <Label Text="Conductividad" />
+            <Entry x:Name="ConductividadEntry" Placeholder="Valor de conductividad" Keyboard="Numeric" />
+            <Button Text="Adjuntar Foto" Clicked="OnAdjuntarConductividadFotoClicked" />
+
+            <!-- Concentración de inhibidor -->
+            <Label Text="Concentración de Inhibidor" />
+            <Entry x:Name="ConcentracionInhibidorEntry" Placeholder="Valor de concentración" Keyboard="Numeric" />
+            <Button Text="Adjuntar Foto" Clicked="OnAdjuntarConcentracionFotoClicked" />
+
+            <!-- Turbidez -->
+            <Label Text="Turbidez" />
+            <Entry x:Name="TurbidezEntry" Placeholder="Valor de turbidez" Keyboard="Numeric" />
+            <Button Text="Adjuntar Foto" Clicked="OnAdjuntarTurbidezFotoClicked" />
+
+            <!-- Botón para guardar -->
+            <Button Text="Guardar Servicio" Clicked="OnGuardarClicked" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

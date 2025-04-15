@@ -33,7 +33,7 @@ public partial class LoginPage : ContentPage
                 Preferences.Set("IsLoggedIn", true);
 
                 // Navegar a la página principal
-                await Navigation.PushAsync(new MainPage());
+                await Navigation.PushAsync(new AppShell());
                 Navigation.RemovePage(this);
             }
         }
