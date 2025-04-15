@@ -1,6 +1,4 @@
 ﻿using SQLite;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace LaCasaDelSueloRadianteApp
 {
@@ -11,29 +9,52 @@ namespace LaCasaDelSueloRadianteApp
         public DatabaseService(string dbPath)
         {
             _database = new SQLiteAsyncConnection(dbPath);
-            _database.CreateTableAsync<Cliente>().Wait();
+            _database.CreateTableAsync<Servicio>().Wait();
         }
 
-        public Task<List<Cliente>> GetClientesAsync()
+        public Task<List<Servicio>> GetServiciosAsync()
         {
-            return _database.Table<Cliente>().ToListAsync();
+            return _database.Table<Servicio>().ToListAsync();
         }
 
-        public Task<Cliente> GetClienteByNameAsync(string nombre)
+        public Task<int> GuardarServicioAsync(Servicio servicio)
         {
-            return _database.Table<Cliente>().FirstOrDefaultAsync(c => c.NombreCompleto == nombre);
-        }
-
-        public Task<int> SaveClienteAsync(Cliente cliente)
-        {
-            if (cliente.Id != 0)
+            if (servicio.Id != 0)
             {
-                return _database.UpdateAsync(cliente);
+                return _database.UpdateAsync(servicio);
             }
             else
             {
-                return _database.InsertAsync(cliente);
+                return _database.InsertAsync(servicio);
             }
         }
+
+        public Task<int> BorrarServicioAsync(Servicio servicio)
+        {
+            return _database.DeleteAsync(servicio);
+        }
+    }
+
+    [Table("Servicios")]
+    public class Servicio
+    {
+        [PrimaryKey, AutoIncrement]
+        public int Id { get; set; }
+        public DateTime Fecha { get; set; }
+        public string NombreCliente { get; set; } = string.Empty;
+        public string? Direccion { get; set; }
+        public string? Email { get; set; }
+        public string? Telefono { get; set; }
+        public string? TipoServicio { get; set; }
+        public string? TipoInstalacion { get; set; }
+        public string? FuenteCalor { get; set; }
+        public double? ValorPh { get; set; }
+        public double? ValorConductividad { get; set; }
+        public double? ValorConcentracion { get; set; }
+        public double? ValorTurbidez { get; set; }
+        public string? FotoPhUrl { get; set; }
+        public string? FotoConductividadUrl { get; set; }
+        public string? FotoConcentracionUrl { get; set; }
+        public string? FotoTurbidezUrl { get; set; }
     }
 }

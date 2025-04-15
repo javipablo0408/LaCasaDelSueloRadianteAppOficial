@@ -1,161 +1,184 @@
 using Microsoft.Maui.Storage;
-using System;
-using System.IO;
+using System.Collections.ObjectModel;
 
 namespace LaCasaDelSueloRadianteApp
 {
     public partial class AgregarPage : ContentPage
     {
         private readonly DatabaseService _database;
+        private readonly GraphService _graphService;
 
-        // Variables para almacenar las rutas de las fotos
-        private string _phFotoPath;
-        private string _conductividadFotoPath;
-        private string _concentracionFotoPath;
-        private string _turbidezFotoPath;
+        // Variables para almacenar las rutas locales de las fotos
+        private string? _phFotoPath;
+        private string? _conductividadFotoPath;
+        private string? _concentracionFotoPath;
+        private string? _turbidezFotoPath;
 
-        public AgregarPage()
+        // Variables para almacenar las URLs de OneDrive
+        private string? _phFotoUrl;
+        private string? _conductividadFotoUrl;
+        private string? _concentracionFotoUrl;
+        private string? _turbidezFotoUrl;
+
+        public AgregarPage(GraphService graphService)
         {
             InitializeComponent();
-
-            // Inicializar la base de datos
+            _graphService = graphService ?? throw new ArgumentNullException(nameof(graphService));
             string dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "clientes.db3");
             _database = new DatabaseService(dbPath);
         }
 
         private async void OnAdjuntarPhFotoClicked(object sender, EventArgs e)
         {
-            var photo = await MediaPicker.PickPhotoAsync();
-            if (photo != null)
+            try
             {
-                _phFotoPath = Path.Combine(FileSystem.AppDataDirectory, photo.FileName);
-                using (var stream = await photo.OpenReadAsync())
-                using (var newStream = File.OpenWrite(_phFotoPath))
+                var photo = await TakePhotoAsync();
+                if (photo != null)
                 {
-                    await stream.CopyToAsync(newStream);
+                    _phFotoPath = photo.FullPath;
+                    var result = await UploadPhotoToOneDriveAsync(_phFotoPath, "pH");
+                    _phFotoUrl = result.ShareUrl;
+                    await DisplayAlert("Éxito", "Foto de pH guardada", "OK");
                 }
-                await DisplayAlert("Foto Adjunta", $"Foto de pH guardada en {_phFotoPath}", "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", $"No se pudo tomar/guardar la foto: {ex.Message}", "OK");
             }
         }
 
         private async void OnAdjuntarConductividadFotoClicked(object sender, EventArgs e)
         {
-            var photo = await MediaPicker.PickPhotoAsync();
-            if (photo != null)
+            try
             {
-                _conductividadFotoPath = Path.Combine(FileSystem.AppDataDirectory, photo.FileName);
-                using (var stream = await photo.OpenReadAsync())
-                using (var newStream = File.OpenWrite(_conductividadFotoPath))
+                var photo = await TakePhotoAsync();
+                if (photo != null)
                 {
-                    await stream.CopyToAsync(newStream);
+                    _conductividadFotoPath = photo.FullPath;
+                    var result = await UploadPhotoToOneDriveAsync(_conductividadFotoPath, "conductividad");
+                    _conductividadFotoUrl = result.ShareUrl;
+                    await DisplayAlert("Éxito", "Foto de conductividad guardada", "OK");
                 }
-                await DisplayAlert("Foto Adjunta", $"Foto de conductividad guardada en {_conductividadFotoPath}", "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", $"No se pudo tomar/guardar la foto: {ex.Message}", "OK");
             }
         }
 
         private async void OnAdjuntarConcentracionFotoClicked(object sender, EventArgs e)
         {
-            var photo = await MediaPicker.PickPhotoAsync();
-            if (photo != null)
+            try
             {
-                _concentracionFotoPath = Path.Combine(FileSystem.AppDataDirectory, photo.FileName);
-                using (var stream = await photo.OpenReadAsync())
-                using (var newStream = File.OpenWrite(_concentracionFotoPath))
+                var photo = await TakePhotoAsync();
+                if (photo != null)
                 {
-                    await stream.CopyToAsync(newStream);
+                    _concentracionFotoPath = photo.FullPath;
+                    var result = await UploadPhotoToOneDriveAsync(_concentracionFotoPath, "concentracion");
+                    _concentracionFotoUrl = result.ShareUrl;
+                    await DisplayAlert("Éxito", "Foto de concentración guardada", "OK");
                 }
-                await DisplayAlert("Foto Adjunta", $"Foto de concentración guardada en {_concentracionFotoPath}", "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", $"No se pudo tomar/guardar la foto: {ex.Message}", "OK");
             }
         }
 
         private async void OnAdjuntarTurbidezFotoClicked(object sender, EventArgs e)
         {
-            var photo = await MediaPicker.PickPhotoAsync();
-            if (photo != null)
+            try
             {
-                _turbidezFotoPath = Path.Combine(FileSystem.AppDataDirectory, photo.FileName);
-                using (var stream = await photo.OpenReadAsync())
-                using (var newStream = File.OpenWrite(_turbidezFotoPath))
+                var photo = await TakePhotoAsync();
+                if (photo != null)
                 {
-                    await stream.CopyToAsync(newStream);
+                    _turbidezFotoPath = photo.FullPath;
+                    var result = await UploadPhotoToOneDriveAsync(_turbidezFotoPath, "turbidez");
+                    _turbidezFotoUrl = result.ShareUrl;
+                    await DisplayAlert("Éxito", "Foto de turbidez guardada", "OK");
                 }
-                await DisplayAlert("Foto Adjunta", $"Foto de turbidez guardada en {_turbidezFotoPath}", "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", $"No se pudo tomar/guardar la foto: {ex.Message}", "OK");
             }
         }
 
         private async void OnGuardarClicked(object sender, EventArgs e)
         {
-            // Verificar si el cliente ya existe
-            var clienteExistente = await _database.GetClienteByNameAsync(NombreEntry.Text);
-
-            if (clienteExistente == null)
+            try
             {
-                // Crear un nuevo cliente
-                var nuevoCliente = new Cliente
+                // Validar campos requeridos
+                if (string.IsNullOrWhiteSpace(NombreEntry.Text))
                 {
-                    NombreCompleto = NombreEntry.Text,
+                    await DisplayAlert("Error", "El nombre del cliente es requerido", "OK");
+                    return;
+                }
+
+                var servicio = new Servicio
+                {
+                    Fecha = DateTime.Now,
+                    NombreCliente = NombreEntry.Text,
                     Direccion = DireccionEntry.Text,
                     Email = EmailEntry.Text,
                     Telefono = TelefonoEntry.Text,
                     TipoServicio = TipoServicioPicker.SelectedItem?.ToString(),
                     TipoInstalacion = TipoInstalacionPicker.SelectedItem?.ToString(),
                     FuenteCalor = FuenteCalorPicker.SelectedItem?.ToString(),
-                    Ph = PhEntry.Text,
-                    PhFoto = _phFotoPath,
-                    Conductividad = ConductividadEntry.Text,
-                    ConductividadFoto = _conductividadFotoPath,
-                    ConcentracionInhibidor = ConcentracionInhibidorEntry.Text,
-                    ConcentracionInhibidorFoto = _concentracionFotoPath,
-                    Turbidez = TurbidezEntry.Text,
-                    TurbidezFoto = _turbidezFotoPath
+                    ValorPh = !string.IsNullOrEmpty(PhEntry.Text) ? double.Parse(PhEntry.Text) : null,
+                    ValorConductividad = !string.IsNullOrEmpty(ConductividadEntry.Text) ? double.Parse(ConductividadEntry.Text) : null,
+                    ValorConcentracion = !string.IsNullOrEmpty(ConcentracionInhibidorEntry.Text) ? double.Parse(ConcentracionInhibidorEntry.Text) : null,
+                    ValorTurbidez = !string.IsNullOrEmpty(TurbidezEntry.Text) ? double.Parse(TurbidezEntry.Text) : null,
+                    FotoPhUrl = _phFotoUrl,
+                    FotoConductividadUrl = _conductividadFotoUrl,
+                    FotoConcentracionUrl = _concentracionFotoUrl,
+                    FotoTurbidezUrl = _turbidezFotoUrl
                 };
 
-                await _database.SaveClienteAsync(nuevoCliente);
-                await DisplayAlert("Éxito", "Cliente creado y servicio guardado.", "OK");
+                await _database.GuardarServicioAsync(servicio);
+                await DisplayAlert("Éxito", "Servicio guardado correctamente", "OK");
+                await Navigation.PopAsync();
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", $"No se pudo guardar el servicio: {ex.Message}", "OK");
+            }
+        }
+
+        private async Task<FileResult?> TakePhotoAsync()
+        {
+            if (MediaPicker.Default.IsCaptureSupported)
+            {
+                try
+                {
+                    var photo = await MediaPicker.Default.CapturePhotoAsync();
+                    return photo;
+                }
+                catch (Exception ex)
+                {
+                    await DisplayAlert("Error", $"No se pudo tomar la foto: {ex.Message}", "OK");
+                    return null;
+                }
             }
             else
             {
-                // Actualizar los datos del cliente existente
-                clienteExistente.Direccion = DireccionEntry.Text;
-                clienteExistente.Email = EmailEntry.Text;
-                clienteExistente.Telefono = TelefonoEntry.Text;
-                clienteExistente.TipoServicio = TipoServicioPicker.SelectedItem?.ToString();
-                clienteExistente.TipoInstalacion = TipoInstalacionPicker.SelectedItem?.ToString();
-                clienteExistente.FuenteCalor = FuenteCalorPicker.SelectedItem?.ToString();
-                clienteExistente.Ph = PhEntry.Text;
-                clienteExistente.PhFoto = _phFotoPath;
-                clienteExistente.Conductividad = ConductividadEntry.Text;
-                clienteExistente.ConductividadFoto = _conductividadFotoPath;
-                clienteExistente.ConcentracionInhibidor = ConcentracionInhibidorEntry.Text;
-                clienteExistente.ConcentracionInhibidorFoto = _concentracionFotoPath;
-                clienteExistente.Turbidez = TurbidezEntry.Text;
-                clienteExistente.TurbidezFoto = _turbidezFotoPath;
-
-                await _database.SaveClienteAsync(clienteExistente);
-                await DisplayAlert("Éxito", "Servicio guardado para el cliente existente.", "OK");
+                await DisplayAlert("Error", "La captura de fotos no está soportada en este dispositivo", "OK");
+                return null;
             }
-
-            // Limpiar el formulario
-            LimpiarFormulario();
         }
 
-        private void LimpiarFormulario()
+        private async Task<(string ItemId, string ShareUrl)> UploadPhotoToOneDriveAsync(string localPath, string photoType)
         {
-            NombreEntry.Text = string.Empty;
-            DireccionEntry.Text = string.Empty;
-            EmailEntry.Text = string.Empty;
-            TelefonoEntry.Text = string.Empty;
-            TipoServicioPicker.SelectedIndex = -1;
-            TipoInstalacionPicker.SelectedIndex = -1;
-            FuenteCalorPicker.SelectedIndex = -1;
-            PhEntry.Text = string.Empty;
-            ConductividadEntry.Text = string.Empty;
-            ConcentracionInhibidorEntry.Text = string.Empty;
-            TurbidezEntry.Text = string.Empty;
-            _phFotoPath = null;
-            _conductividadFotoPath = null;
-            _concentracionFotoPath = null;
-            _turbidezFotoPath = null;
+            try
+            {
+                var fileName = $"{photoType}_{DateTime.Now:yyyyMMddHHmmss}{Path.GetExtension(localPath)}";
+                return await _graphService.UploadFileToOneDriveAsync(localPath, fileName);
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", $"No se pudo subir la foto a OneDrive: {ex.Message}", "OK");
+                throw;
+            }
         }
     }
 }

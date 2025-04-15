@@ -2,22 +2,25 @@
 {
     public partial class App : Application
     {
-        public App()
+        private readonly IServiceProvider _serviceProvider;
+
+        public App(IServiceProvider serviceProvider)
         {
+            _serviceProvider = serviceProvider;
             InitializeComponent();
 
-            Preferences.Clear();//BORRALO LUEGO 
+            Preferences.Default.Clear(); //BORRALO LUEGO 
 
             // Verificar si el usuario está logueado
-            bool isLoggedIn = Preferences.Get("IsLoggedIn", false);
+            bool isLoggedIn = Preferences.Default.Get("IsLoggedIn", false);
 
             if (isLoggedIn)
             {
-                MainPage = new AppShell(); // Navegación con barra de pestañas
+                MainPage = _serviceProvider.GetRequiredService<AppShell>();
             }
             else
             {
-                MainPage = new NavigationPage(new LoginPage()); // Página de login
+                MainPage = new NavigationPage(_serviceProvider.GetRequiredService<LoginPage>());
             }
         }
     }
