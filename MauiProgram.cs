@@ -11,11 +11,11 @@ namespace LaCasaDelSueloRadianteApp
         {
             var builder = MauiApp.CreateBuilder();
 
-            // Configuración básica que funciona en todas las plataformas
             ConfigureBasicApp(builder);
-
-            // Configuración específica de plataforma
             ConfigurePlatformSpecific(builder);
+
+            // Importante: registra la App en el contenedor
+            builder.Services.AddSingleton<App>();
 
             return builder.Build();
         }
@@ -24,7 +24,7 @@ namespace LaCasaDelSueloRadianteApp
         {
             builder.UseMauiApp<App>();
 
-            // Configurar GraphService
+            // Configuración de GraphService (si la usas)
             var graphConfig = new GraphServiceConfiguration
             {
                 TenantId = "0cd4c7dd-3fde-4373-8d6f-915d72ab9ce0",
@@ -42,31 +42,34 @@ namespace LaCasaDelSueloRadianteApp
                 }
             };
 
-            // Configurar DatabaseService
             var dbPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "clientes.db3");
 
-            // Registrar servicios
+            // REGISTRO DE SERVICIOS Y PÁGINAS
             builder.Services.AddSingleton<GraphServiceConfiguration>(graphConfig);
             builder.Services.AddSingleton<GraphService>();
             builder.Services.AddSingleton<DatabaseService>(_ => new DatabaseService(dbPath));
 
-            // Registrar páginas y vistas
+            builder.Services.AddSingleton<MauiMsalAuthService>();
+            builder.Services.AddTransient<OneDriveService>();
+
+            // Páginas
             builder.Services.AddTransient<LoginPage>();
             builder.Services.AddTransient<MainPage>();
             builder.Services.AddTransient<HistorialPage>();
             builder.Services.AddTransient<InformacionPage>();
             builder.Services.AddTransient<ClientesPage>();
             builder.Services.AddTransient<AgregarPage>();
+
+            // Shell
             builder.Services.AddSingleton<AppShell>();
 
-            // Registrar servicios de navegación
+            // Servicios de navegación (opcional)
             builder.Services.AddSingleton<INavigation>(serviceProvider =>
                 Application.Current?.MainPage?.Navigation
                 ?? throw new InvalidOperationException("Navigation not available"));
 
-            // Configurar logging
 #if DEBUG
             builder.Logging.AddDebug();
             builder.Logging.SetMinimumLevel(LogLevel.Trace);

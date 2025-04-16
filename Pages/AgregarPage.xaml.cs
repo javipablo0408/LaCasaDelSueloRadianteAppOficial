@@ -7,7 +7,7 @@ namespace LaCasaDelSueloRadianteApp
     public partial class AgregarPage : ContentPage
     {
         private readonly DatabaseService _database;
-        private readonly GraphService _graphService;
+        private readonly OneDriveService _oneDriveService;
 
         // Variables para almacenar las rutas locales de las fotos
         private string? _phFotoPath;
@@ -21,82 +21,45 @@ namespace LaCasaDelSueloRadianteApp
         private string? _concentracionFotoUrl;
         private string? _turbidezFotoUrl;
 
-        public AgregarPage(GraphService graphService)
+        public AgregarPage(OneDriveService oneDriveService)
         {
             InitializeComponent();
-            _graphService = graphService ?? throw new ArgumentNullException(nameof(graphService));
+            _oneDriveService = oneDriveService ?? throw new ArgumentNullException(nameof(oneDriveService));
             string dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "clientes.db3");
             _database = new DatabaseService(dbPath);
         }
 
         private async void OnAdjuntarPhFotoClicked(object sender, EventArgs e)
         {
-            try
-            {
-                var photo = await TakePhotoAsync();
-                if (photo != null)
-                {
-                    _phFotoPath = photo.FullPath;
-                    var result = await UploadPhotoToOneDriveAsync(_phFotoPath, "pH");
-                    _phFotoUrl = result.ShareUrl;
-                    await DisplayAlert("Éxito", "Foto de pH guardada", "OK");
-                }
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Error", $"No se pudo tomar/guardar la foto: {ex.Message}", "OK");
-            }
+            await AdjuntarFotoAsync("pH", path => _phFotoPath = path, url => _phFotoUrl = url);
         }
 
         private async void OnAdjuntarConductividadFotoClicked(object sender, EventArgs e)
         {
-            try
-            {
-                var photo = await TakePhotoAsync();
-                if (photo != null)
-                {
-                    _conductividadFotoPath = photo.FullPath;
-                    var result = await UploadPhotoToOneDriveAsync(_conductividadFotoPath, "conductividad");
-                    _conductividadFotoUrl = result.ShareUrl;
-                    await DisplayAlert("Éxito", "Foto de conductividad guardada", "OK");
-                }
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Error", $"No se pudo tomar/guardar la foto: {ex.Message}", "OK");
-            }
+            await AdjuntarFotoAsync("conductividad", path => _conductividadFotoPath = path, url => _conductividadFotoUrl = url);
         }
 
         private async void OnAdjuntarConcentracionFotoClicked(object sender, EventArgs e)
         {
-            try
-            {
-                var photo = await TakePhotoAsync();
-                if (photo != null)
-                {
-                    _concentracionFotoPath = photo.FullPath;
-                    var result = await UploadPhotoToOneDriveAsync(_concentracionFotoPath, "concentracion");
-                    _concentracionFotoUrl = result.ShareUrl;
-                    await DisplayAlert("Éxito", "Foto de concentración guardada", "OK");
-                }
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Error", $"No se pudo tomar/guardar la foto: {ex.Message}", "OK");
-            }
+            await AdjuntarFotoAsync("concentracion", path => _concentracionFotoPath = path, url => _concentracionFotoUrl = url);
         }
 
         private async void OnAdjuntarTurbidezFotoClicked(object sender, EventArgs e)
+        {
+            await AdjuntarFotoAsync("turbidez", path => _turbidezFotoPath = path, url => _turbidezFotoUrl = url);
+        }
+
+        private async Task AdjuntarFotoAsync(string tipo, Action<string> setPath, Action<string> setUrl)
         {
             try
             {
                 var photo = await TakePhotoAsync();
                 if (photo != null)
                 {
-                    _turbidezFotoPath = photo.FullPath;
-                    var result = await UploadPhotoToOneDriveAsync(_turbidezFotoPath, "turbidez");
-                    _turbidezFotoUrl = result.ShareUrl;
-                    await DisplayAlert("Éxito", "Foto de turbidez guardada", "OK");
+                    setPath(photo.FullPath);
+                    var result = await UploadPhotoToOneDriveAsync(photo.FullPath, tipo);
+                    setUrl(result.ShareUrl);
+                    await DisplayAlert("Éxito", $"Foto de {tipo} guardada", "OK");
                 }
             }
             catch (Exception ex)
@@ -173,7 +136,9 @@ namespace LaCasaDelSueloRadianteApp
             try
             {
                 var fileName = $"{photoType}_{DateTime.Now:yyyyMMddHHmmss}{Path.GetExtension(localPath)}";
-                return await _graphService.UploadFileToOneDriveAsync(localPath, fileName);
+                var itemId = await _oneDriveService.UploadFileAsync(fileName, File.OpenRead(localPath));
+                var shareUrl = await _oneDriveService.GetShareLinkAsync(itemId);
+                return (itemId, shareUrl);
             }
             catch (Exception ex)
             {
