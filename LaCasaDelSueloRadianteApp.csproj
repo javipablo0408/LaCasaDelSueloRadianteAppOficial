@@ -58,9 +58,12 @@
 	<ItemGroup>
 		<PackageReference Include="Azure.Identity" Version="1.13.2" />
 		<PackageReference Include="Microsoft.Graph" Version="5.76.0" />
+		<PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.70.2" />
+		<PackageReference Include="Microsoft.Kiota.Abstractions" Version="1.17.2" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.1" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 		<PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
 	</ItemGroup>
 

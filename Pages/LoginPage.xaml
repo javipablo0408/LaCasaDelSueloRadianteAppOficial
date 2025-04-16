@@ -1,36 +1,56 @@
-<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="LaCasaDelSueloRadianteApp.LoginPage"
-             Title="">
+             Title="Login">
 
-    <VerticalStackLayout Spacing="25" 
-                        Padding="30,0" 
-                        VerticalOptions="Center">
+    <Grid RowDefinitions="2*,3*,2*" 
+          Padding="20">
 
-        <Image
-            Source="logo.png"
-            SemanticProperties.Description="Cute dot net bot waving hi to you!"
-            HeightRequest="400"
-            HorizontalOptions="Center" />
+        <!-- Logo y Título -->
+        <VerticalStackLayout Grid.Row="0" 
+                            VerticalOptions="Center" 
+                            Spacing="20">
+            <Image Source="onedrive_logo"
+                   HeightRequest="100"
+                   WidthRequest="100"
+                   HorizontalOptions="Center"/>
 
-       
+            <Label Text="La Casa del Suelo Radiante"
+                   FontSize="24"
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center"/>
+        </VerticalStackLayout>
 
-        <Button 
-            x:Name="LoginButton"
-            Text="Iniciar Sesión"
-            SemanticProperties.Hint="Inicia sesión con tu cuenta de Microsoft"
-            Clicked="OnLoginClicked"
-            BackgroundColor= "#001d44"
-            TextColor="White"
-            Padding="40 , 0"
-            HorizontalOptions="Center" />
+        <!-- Contenido Principal -->
+        <VerticalStackLayout Grid.Row="1" 
+                            VerticalOptions="Center" 
+                            Spacing="20">
+            <Label Text="Gestión de Documentos"
+                   FontSize="20"
+                   TextColor="{StaticResource Gray500}"
+                   HorizontalOptions="Center"/>
 
-        <ActivityIndicator 
-            x:Name="LoadingIndicator" 
-            IsRunning="False" 
-            IsVisible="False"
-            HorizontalOptions="Center" />
+            <Label Text="Accede a tus archivos de OneDrive"
+                   FontSize="16"
+                   TextColor="{StaticResource Gray500}"
+                   HorizontalOptions="Center"/>
 
-    </VerticalStackLayout>
+            <Button Text="Iniciar Sesión con Microsoft"
+                    ImageSource="microsoft_logo"
+                    BackgroundColor="#0078D4"
+                    TextColor="White"
+                    HeightRequest="50"
+                    Margin="20,40"
+                    Clicked="OnLoginClicked"/>
+        </VerticalStackLayout>
+
+        <!-- Footer -->
+        <VerticalStackLayout Grid.Row="2" 
+                            VerticalOptions="End">
+            <Label Text="© 2024 La Casa del Suelo Radiante"
+                   TextColor="{StaticResource Gray500}"
+                   FontSize="12"
+                   HorizontalOptions="Center"/>
+        </VerticalStackLayout>
+    </Grid>
 </ContentPage>

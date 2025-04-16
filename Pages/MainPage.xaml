@@ -1,10 +1,89 @@
-﻿<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="LaCasaDelSueloRadianteApp.MainPage"
              Title="Inicio">
-    <VerticalStackLayout>
-        <Label Text="Página Principal" 
-               VerticalOptions="Center" 
-               HorizontalOptions="Center" />
-    </VerticalStackLayout>
+
+    <Grid RowDefinitions="Auto,*,Auto" 
+          Padding="20"
+          RowSpacing="20">
+
+        <!-- Cabecera -->
+        <HorizontalStackLayout Grid.Row="0" 
+                              Spacing="10">
+            <Label Text="OneDrive" 
+                   FontSize="24"
+                   FontAttributes="Bold"
+                   VerticalOptions="Center"/>
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                             IsVisible="{Binding IsBusy}"
+                             Color="{StaticResource Primary}"/>
+        </HorizontalStackLayout>
+
+        <!-- Lista de Archivos -->
+        <CollectionView Grid.Row="1" 
+                       x:Name="FilesCollection"
+                       SelectionMode="Single"
+                       SelectionChanged="OnFileSelected">
+
+            <CollectionView.EmptyView>
+                <VerticalStackLayout VerticalOptions="Center" 
+                                   HorizontalOptions="Center"
+                                   Spacing="10">
+                    <Label Text="No hay archivos disponibles"
+                           FontSize="18"
+                           TextColor="{StaticResource Gray500}"/>
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Border Margin="0,5"
+                            Padding="15"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 10"
+                            Stroke="{StaticResource Gray200}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <!-- Nombre y Fecha -->
+                            <VerticalStackLayout Grid.Column="0" 
+                                               Spacing="5">
+                                <Label Text="{Binding Name}"
+                                       FontSize="16"/>
+                                <Label Text="{Binding LastModifiedDateTime, StringFormat='{0:dd/MM/yyyy HH:mm}'}"
+                                       TextColor="{StaticResource Gray500}"
+                                       FontSize="12"/>
+                            </VerticalStackLayout>
+
+                            <!-- Tamaño -->
+                            <Label Grid.Column="1"
+                                   Text="{Binding Size}"
+                                   VerticalOptions="Center"
+                                   TextColor="{StaticResource Gray500}"/>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Botones de Acción -->
+        <HorizontalStackLayout Grid.Row="2" 
+                              Spacing="10"
+                              HorizontalOptions="Center">
+            <Button Text="Subir Archivo"
+                    SemanticProperties.Hint="Subir un nuevo archivo a OneDrive"
+                    Clicked="OnUploadClicked"/>
+
+            <Button Text="Descargar"
+                    SemanticProperties.Hint="Descargar el archivo seleccionado"
+                    Clicked="OnDownloadClicked"/>
+
+            <Button Text="Cerrar Sesión"
+                    SemanticProperties.Hint="Cerrar la sesión actual"
+                    BackgroundColor="{StaticResource Gray200}"
+                    TextColor="{StaticResource Gray900}"
+                    Clicked="OnLogoutClicked"/>
+        </HorizontalStackLayout>
+    </Grid>
+
 </ContentPage>

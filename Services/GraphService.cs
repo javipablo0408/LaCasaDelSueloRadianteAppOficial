@@ -7,7 +7,11 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace LaCasaDelSueloRadianteApp
+using LaCasaDelSueloRadianteApp;
+using LaCasaDelSueloRadianteApp.Services;
+
+
+namespace LaCasaDelSueloRadianteApp.Services
 {
     public class GraphServiceConfiguration
     {
