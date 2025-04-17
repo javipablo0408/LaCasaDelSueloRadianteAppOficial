@@ -1,64 +1,36 @@
 ﻿using Microsoft.Identity.Client;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace LaCasaDelSueloRadianteApp.Services
 {
     public class MauiMsalAuthService
     {
         private readonly IPublicClientApplication _pca;
-        private readonly string[] _scopes = new[]
+        private readonly string[] _scopes = new string[]
         {
-            "Files.Read",
-            "Files.ReadWrite",
-            "Files.Read.All",
             "Files.ReadWrite.All",
-            "offline_access"
+            "User.Read"
         };
 
         public MauiMsalAuthService()
         {
-            var builder = PublicClientApplicationBuilder
-                .Create("30af0f82-bbeb-4f49-89cd-3ff526bc339b")
+            _pca = PublicClientApplicationBuilder.Create("30af0f82-bbeb-4f49-89cd-3ff526bc339b")
                 .WithRedirectUri("http://localhost")
-                .WithAuthority(AadAuthorityAudience.AzureAdAndPersonalMicrosoftAccount);
-
-#if ANDROID
-            builder = builder.WithParentActivityOrWindow(() => Platform.CurrentActivity);
-#endif
-
-            _pca = builder.Build();
+                .Build();
         }
 
         public async Task<AuthenticationResult> AcquireTokenAsync()
         {
+            var accounts = await _pca.GetAccountsAsync();
             try
             {
-                var accounts = await _pca.GetAccountsAsync();
-                var firstAccount = accounts.FirstOrDefault();
-
-                if (firstAccount != null)
-                {
-                    return await _pca.AcquireTokenSilent(_scopes, firstAccount)
-                        .ExecuteAsync();
-                }
-
-                return await AcquireTokenInteractiveAsync();
+                return await _pca.AcquireTokenSilent(_scopes, accounts.FirstOrDefault()).ExecuteAsync();
             }
             catch (MsalUiRequiredException)
             {
-                return await AcquireTokenInteractiveAsync();
+                return await _pca.AcquireTokenInteractive(_scopes).ExecuteAsync();
             }
-        }
-
-        private async Task<AuthenticationResult> AcquireTokenInteractiveAsync()
-        {
-            var builder = _pca.AcquireTokenInteractive(_scopes)
-                .WithPrompt(Prompt.SelectAccount);
-
-#if ANDROID
-            builder = builder.WithParentActivityOrWindow(Platform.CurrentActivity);
-#endif
-
-            return await builder.ExecuteAsync();
         }
 
         public async Task SignOutAsync()
