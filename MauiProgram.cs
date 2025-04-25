@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Maui;
 using Microsoft.Maui.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Maui.Storage;
 using LaCasaDelSueloRadianteApp;
 using LaCasaDelSueloRadianteApp.Services;
 
@@ -46,10 +48,22 @@ namespace LaCasaDelSueloRadianteApp
             // 4) Inyección de dependencias
             builder.Services.AddSingleton<MauiMsalAuthService>();
             builder.Services.AddSingleton<OneDriveService>();
-            builder.Services.AddSingleton<DatabaseService>();    // ← AÑADIDO
+
+            // Registro de DatabaseService con la ruta física de la base de datos
+            builder.Services.AddSingleton<DatabaseService>(sp =>
+            {
+                // Construye la ruta de la BD en el directorio privado de la app
+                var dbPath = Path.Combine(
+                    FileSystem.AppDataDirectory,
+                    "clientes.db3"
+                );
+                return new DatabaseService(dbPath);
+            });
+
             builder.Services.AddTransient<LoginPage>();
-            builder.Services.AddTransient<AgregarPage>();        // ← AÑADIDO
+            builder.Services.AddTransient<AgregarPage>();
             builder.Services.AddSingleton<AppShell>();
+
             return builder.Build();
         }
     }
