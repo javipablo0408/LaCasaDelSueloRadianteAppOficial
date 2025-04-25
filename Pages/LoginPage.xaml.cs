@@ -1,5 +1,6 @@
 using Microsoft.Maui.Controls;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Maui.Storage;              //  Para Preferences
 using LaCasaDelSueloRadianteApp.Services;
 using System;
 
@@ -22,30 +23,35 @@ namespace LaCasaDelSueloRadianteApp
         {
             try
             {
-                // UI: deshabilita botón y muestra spinner
+                // Deshabilita UI mientras se autentica...
                 loginButton.IsEnabled = false;
                 loadingIndicator.IsVisible = true;
                 loadingIndicator.IsRunning = true;
 
-                // Solicita / recupera token
+                // Intenta silent, si falla hace interactive
                 var result = await _authService.AcquireTokenAsync();
 
                 if (result != null)
                 {
-                    // Navega al AppShell registrado en DI
+                    // Marca que ya inició sesión
+                    Preferences.Default.Set("IsLoggedIn", true);
+
+                    // Navega al AppShell (pestañas)
                     var appShell = _services.GetRequiredService<AppShell>();
                     Application.Current.MainPage = appShell;
                 }
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error de inicio de sesión",
-                                   $"No se pudo iniciar sesión: {ex.Message}",
-                                   "OK");
+                await DisplayAlert(
+                    "Error de inicio de sesión",
+                    $"No se pudo iniciar sesión: {ex.Message}",
+                    "OK"
+                );
             }
             finally
             {
-                // Restablece UI
+                // Restaura UI
                 loginButton.IsEnabled = true;
                 loadingIndicator.IsRunning = false;
                 loadingIndicator.IsVisible = false;

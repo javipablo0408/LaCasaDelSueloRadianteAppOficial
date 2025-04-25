@@ -49,15 +49,15 @@ namespace LaCasaDelSueloRadianteApp
             builder.Services.AddSingleton<MauiMsalAuthService>();
             builder.Services.AddSingleton<OneDriveService>();
 
-            // Registro de DatabaseService con la ruta física de la base de datos
+            // Ahora pasamos también el MauiMsalAuthService al constructor de DatabaseService
             builder.Services.AddSingleton<DatabaseService>(sp =>
             {
-                // Construye la ruta de la BD en el directorio privado de la app
                 var dbPath = Path.Combine(
                     FileSystem.AppDataDirectory,
                     "clientes.db3"
                 );
-                return new DatabaseService(dbPath);
+                var authService = sp.GetRequiredService<MauiMsalAuthService>();
+                return new DatabaseService(dbPath, authService);
             });
 
             builder.Services.AddTransient<LoginPage>();

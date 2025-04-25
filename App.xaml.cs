@@ -29,8 +29,7 @@ namespace LaCasaDelSueloRadianteApp
             _serviceProvider = serviceProvider;
             InitializeComponent();
 
-            // TODO: eliminar esta línea cuando ya no necesites reiniciar preferencias
-            Preferences.Default.Clear();
+        
 
             try
             {

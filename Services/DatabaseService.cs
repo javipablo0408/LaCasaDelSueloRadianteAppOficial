@@ -1,45 +1,52 @@
 ﻿using SQLite;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using LaCasaDelSueloRadianteApp;
+using LaCasaDelSueloRadianteApp.Services; // Para MauiMsalAuthService
+using LaCasaDelSueloRadianteApp;           // Para Cliente y Servicio
 
 namespace LaCasaDelSueloRadianteApp.Services
 {
     public class DatabaseService
     {
         private readonly SQLiteAsyncConnection _connection;
+        private readonly MauiMsalAuthService _authService;
 
-        public DatabaseService(string dbPath)
+        // Ahora recibe también el MauiMsalAuthService inyectado
+        public DatabaseService(string dbPath, MauiMsalAuthService authService)
         {
             _connection = new SQLiteAsyncConnection(dbPath);
-            // Creación de las tablas para Cliente y Servicio.
             _connection.CreateTableAsync<Cliente>().Wait();
             _connection.CreateTableAsync<Servicio>().Wait();
+
+            _authService = authService
+                ?? throw new ArgumentNullException(nameof(authService));
         }
 
-        // Método para guardar un nuevo cliente.
+        // Guarda un nuevo cliente
         public Task<int> GuardarClienteAsync(Cliente cliente) =>
             _connection.InsertAsync(cliente);
 
-        // Método para guardar un nuevo servicio, relacionado con un cliente.
+        // Guarda un nuevo servicio
         public Task<int> GuardarServicioAsync(Servicio servicio) =>
             _connection.InsertAsync(servicio);
 
-        // Obtiene la lista de clientes registrados.
+        // Lista todos los clientes
         public Task<List<Cliente>> ObtenerClientesAsync() =>
             _connection.Table<Cliente>().ToListAsync();
 
-        // Obtiene la lista de servicios asociados a un cliente en particular.
+        // Lista servicios de un cliente
         public Task<List<Servicio>> ObtenerServiciosAsync(int clienteId) =>
-            _connection.Table<Servicio>().Where(s => s.ClienteId == clienteId).ToListAsync();
+            _connection.Table<Servicio>()
+                       .Where(s => s.ClienteId == clienteId)
+                       .ToListAsync();
 
-        // Método de sincronización que agrupa clientes y sus servicios en formato JSON.
-        // Además, se sube el JSON a OneDrive utilizando Microsoft Graph.
+        // Serializa clientes+servicios y sube JSON a OneDrive
         public async Task SincronizarConOneDriveAsync()
         {
             var clientes = await ObtenerClientesAsync();
@@ -52,34 +59,30 @@ namespace LaCasaDelSueloRadianteApp.Services
             }
 
             string json = JsonSerializer.Serialize(datosSincronizados);
-            // Subir el archivo JSON a OneDrive. El archivo se llamará "sincronizacion.json".
             await UploadToOneDrive("sincronizacion.json", json);
         }
 
-        // Método privado que utiliza Microsoft Graph API para subir un archivo a OneDrive.
-        // Se obtiene el token de acceso mediante la clase MauiMsalAuthService.
+        // Sube el archivo JSON a OneDrive usando el mismo singleton de authService
         private async Task UploadToOneDrive(string fileName, string content)
         {
-            var authService = new MauiMsalAuthService();
-            var authResult = await authService.AcquireTokenAsync();
+            // Reutiliza la instancia inyectada de MauiMsalAuthService
+            var authResult = await _authService.AcquireTokenAsync();
             var accessToken = authResult.AccessToken;
 
-            using (var client = new HttpClient())
-            {
-                client.DefaultRequestHeaders.Authorization =
-                    new AuthenticationHeaderValue("Bearer", accessToken);
-                // Endpoint para subir el archivo a la raíz de OneDrive.
-                var requestUri = $"https://graph.microsoft.com/v1.0/me/drive/root:/Lacasadelsueloradianteapp/{fileName}:/content";
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", accessToken);
 
-                using (var stringContent = new StringContent(content, Encoding.UTF8, "application/json"))
-                {
-                    var response = await client.PutAsync(requestUri, stringContent);
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        throw new Exception($"Error al subir el archivo a OneDrive: {response.ReasonPhrase}");
-                    }
-                }
-            }
+            var requestUri =
+                $"https://graph.microsoft.com/v1.0/me/drive/root:/Lacasadelsueloradianteapp/{fileName}:/content";
+
+            using var stringContent =
+                new StringContent(content, Encoding.UTF8, "application/json");
+
+            var response = await client.PutAsync(requestUri, stringContent);
+            if (!response.IsSuccessStatusCode)
+                throw new Exception(
+                    $"Error al subir el archivo a OneDrive: {response.ReasonPhrase}");
         }
     }
 }
