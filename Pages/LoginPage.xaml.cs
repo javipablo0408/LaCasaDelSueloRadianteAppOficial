@@ -1,51 +1,51 @@
 using Microsoft.Maui.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using LaCasaDelSueloRadianteApp.Services;
+using System;
 
 namespace LaCasaDelSueloRadianteApp
 {
     public partial class LoginPage : ContentPage
     {
         private readonly MauiMsalAuthService _authService;
-        private readonly OneDriveService _oneDriveService;
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IServiceProvider _services;
 
-        public LoginPage(
-            MauiMsalAuthService authService,
-            OneDriveService oneDriveService,
-            IServiceProvider serviceProvider)
+        public LoginPage(MauiMsalAuthService authService,
+                         IServiceProvider services)
         {
             InitializeComponent();
             _authService = authService;
-            _oneDriveService = oneDriveService;
-            _serviceProvider = serviceProvider;
+            _services = services;
         }
 
         private async void OnLoginClicked(object sender, EventArgs e)
         {
             try
             {
-                // Deshabilitar el botón de inicio de sesión y mostrar el indicador de carga
+                // UI: deshabilita botón y muestra spinner
                 loginButton.IsEnabled = false;
                 loadingIndicator.IsVisible = true;
                 loadingIndicator.IsRunning = true;
 
-                // Adquirir el token
+                // Solicita / recupera token
                 var result = await _authService.AcquireTokenAsync();
+
                 if (result != null)
                 {
-                    // Obtener AppShell del contenedor de servicios
-                    var appShell = _serviceProvider.GetRequiredService<AppShell>();
+                    // Navega al AppShell registrado en DI
+                    var appShell = _services.GetRequiredService<AppShell>();
                     Application.Current.MainPage = appShell;
                 }
             }
             catch (Exception ex)
             {
                 await DisplayAlert("Error de inicio de sesión",
-                    "No se pudo iniciar sesión: " + ex.Message, "OK");
+                                   $"No se pudo iniciar sesión: {ex.Message}",
+                                   "OK");
             }
             finally
             {
-                // Habilitar el botón de inicio de sesión y ocultar el indicador de carga
+                // Restablece UI
                 loginButton.IsEnabled = true;
                 loadingIndicator.IsRunning = false;
                 loadingIndicator.IsVisible = false;

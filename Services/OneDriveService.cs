@@ -1,119 +1,209 @@
-﻿using Microsoft.Identity.Client;
-using System;
-using System.IO;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
+﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Graph;
+using Microsoft.Graph.Models;
+using Microsoft.Kiota.Abstractions;
 
 namespace LaCasaDelSueloRadianteApp.Services
 {
     public class OneDriveService
     {
-        private readonly MauiMsalAuthService _authService;
-        private readonly HttpClient _httpClient;
-        private const string GraphApiBaseUrl = "https://graph.microsoft.com/v1.0/";
+        private readonly GraphServiceClient _graph;
+        private const long SmallFileLimit = 4 * 1024 * 1024;   // 4 MiB
+        private const int ChunkSize = 320 * 1024;         // 320 KiB
 
-        public OneDriveService(MauiMsalAuthService authService)
+        public OneDriveService(MauiMsalAuthService auth)
         {
-            _authService = authService;
-            _httpClient = new HttpClient { BaseAddress = new Uri(GraphApiBaseUrl) };
+            if (auth == null) throw new ArgumentNullException(nameof(auth));
+            var credential = new MsalTokenCredential(auth);
+            _graph = new GraphServiceClient(
+                credential,
+                new[] { "Files.ReadWrite.All", "User.Read" }
+            );
         }
 
-        private async Task SetAuthHeaderAsync()
+        private RequestInformation NewRequest(
+            string urlTemplate,
+            Method method,
+            IDictionary<string, object>? pathParams = null)
         {
-            var token = await _authService.AcquireTokenAsync();
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", token.AccessToken);
-        }
+            if (string.IsNullOrWhiteSpace(urlTemplate))
+                throw new ArgumentException("URL template vacía.", nameof(urlTemplate));
 
-        // Sube un archivo a OneDrive dentro de la carpeta "Lacasadelsueloradianteapp".
-        public async Task UploadFileAsync(string fileName, Stream content)
-        {
-            await SetAuthHeaderAsync();
-            var folderId = await EnsureAppFolderAsync();
-
-            var requestUrl = $"me/drive/items/{folderId}:/{fileName}:/content";
-            var streamContent = new StreamContent(content);
-            streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-
-            var response = await _httpClient.PutAsync(requestUrl, streamContent);
-            response.EnsureSuccessStatusCode();
-        }
-
-        // Retorna una lista de archivos (DriveItem) en la carpeta "Lacasadelsueloradianteapp".
-        public async Task<List<DriveItem>> ListFilesAsync()
-        {
-            await SetAuthHeaderAsync();
-            var folderId = await EnsureAppFolderAsync();
-            var response = await _httpClient.GetAsync($"me/drive/items/{folderId}/children");
-            response.EnsureSuccessStatusCode();
-            var content = await response.Content.ReadAsStringAsync();
-            var driveResponse = JsonSerializer.Deserialize<DriveItemResponse>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            return driveResponse?.Value;
-        }
-
-        // Descarga un archivo de OneDrive.
-        public async Task<byte[]> DownloadFileAsync(string fileId)
-        {
-            await SetAuthHeaderAsync();
-            var response = await _httpClient.GetAsync($"me/drive/items/{fileId}/content");
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadAsByteArrayAsync();
-        }
-
-        // Método de ejemplo para sincronizar fotos.
-        public async Task SincronizarFotosAsync(params string[] photoUrls)
-        {
-            foreach (var url in photoUrls)
+            var info = new RequestInformation
             {
-                if (!string.IsNullOrEmpty(url))
-                {
-                    // Aquí se puede implementar la lógica para sincronizar cada foto.
-                    // Por ejemplo: descargar el contenido desde la URL y luego re-subirlo.
-                }
-            }
+                HttpMethod = method,
+                UrlTemplate = urlTemplate
+            };
+            if (pathParams != null)
+                foreach (var kv in pathParams)
+                    info.PathParameters.Add(kv.Key, kv.Value);
+            return info;
         }
 
-        // Obtiene o crea la carpeta "Lacasadelsueloradianteapp" en OneDrive.
-        private async Task<string> EnsureAppFolderAsync()
+        public async Task<IList<DriveItem>> ListAsync(
+            string? folderPath = null,
+            CancellationToken ct = default)
         {
-            var folderName = "Lacasadelsueloradianteapp";
-            await SetAuthHeaderAsync();
+            var tpl = string.IsNullOrEmpty(folderPath)
+                ? "{+baseurl}/me/drive/root/children"
+                : "{+baseurl}/me/drive/root:/{folderPath}:/children";
 
-            // Buscar la carpeta con el nombre exacto.
-            var response = await _httpClient.GetAsync($"me/drive/root/children?$filter=name eq '{folderName}'");
-            if (response.IsSuccessStatusCode)
+            var p = string.IsNullOrEmpty(folderPath)
+                ? null
+                : new Dictionary<string, object> { ["folderPath"] = folderPath.TrimStart('/') };
+
+            var req = NewRequest(tpl, Method.GET, p);
+            var resp = await _graph.RequestAdapter
+                                   .SendAsync<DriveItemCollectionResponse>(
+                                       req,
+                                       DriveItemCollectionResponse.CreateFromDiscriminatorValue,
+                                       cancellationToken: ct)
+                                   .ConfigureAwait(false);
+
+            if (resp?.Value == null)
+                return new List<DriveItem>();
+            return resp.Value is IList<DriveItem> list
+                ? list
+                : resp.Value.ToList();
+        }
+
+        public async Task<DriveItem> UploadFileAsync(
+            string remotePath,
+            Stream content,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(remotePath))
+                throw new ArgumentException("Ruta remota vacía.", nameof(remotePath));
+            if (content == null)
+                throw new ArgumentNullException(nameof(content));
+
+            var clean = remotePath.TrimStart('/');
+            // Carga pequeña
+            if (content.Length <= SmallFileLimit)
             {
-                var content = await response.Content.ReadAsStringAsync();
-                var driveResponse = JsonSerializer.Deserialize<DriveItemResponse>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                if (driveResponse?.Value != null && driveResponse.Value.Count > 0)
-                {
-                    return driveResponse.Value[0].Id;
-                }
+                var putReq = NewRequest(
+                    "{+baseurl}/me/drive/root:/{remotePath}:/content",
+                    Method.PUT,
+                    new Dictionary<string, object> { ["remotePath"] = clean }
+                );
+                putReq.SetStreamContent(content);
+                return await _graph.RequestAdapter
+                                   .SendAsync<DriveItem>(
+                                       putReq,
+                                       DriveItem.CreateFromDiscriminatorValue,
+                                       cancellationToken: ct)
+                                   .ConfigureAwait(false);
             }
 
-            // Si la carpeta no existe, se crea.
-            var folderJson = $"{{\"name\": \"{folderName}\", \"folder\": {{}}, \"@microsoft.graph.conflictBehavior\": \"rename\"}}";
-            var createResponse = await _httpClient.PostAsync("me/drive/root/children", new StringContent(folderJson, Encoding.UTF8, "application/json"));
-            createResponse.EnsureSuccessStatusCode();
-            var createdContent = await createResponse.Content.ReadAsStringAsync();
-            var createdDriveItem = JsonSerializer.Deserialize<DriveItem>(createdContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            return createdDriveItem.Id;
+            // Carga grande
+            var sesReq = NewRequest(
+                "{+baseurl}/me/drive/root:/{remotePath}:/createUploadSession",
+                Method.POST,
+                new Dictionary<string, object> { ["remotePath"] = clean }
+            );
+            var session = await _graph.RequestAdapter
+                                      .SendAsync<UploadSession>(
+                                          sesReq,
+                                          UploadSession.CreateFromDiscriminatorValue,
+                                          cancellationToken: ct)
+                                      .ConfigureAwait(false);
+
+            var uploader = new LargeFileUploadTask<DriveItem>(
+                session,
+                content,
+                ChunkSize,
+                _graph.RequestAdapter   // ← adapter en 4º parámetro
+            );
+            var result = await uploader.UploadAsync(cancellationToken: ct)
+                                       .ConfigureAwait(false);
+            if (result.UploadSucceeded && result.ItemResponse != null)
+                return result.ItemResponse;
+
+            throw new IOException("La carga fragmentada falló.");
         }
-    }
 
-    // Clases auxiliares para deserializar respuestas de Microsoft Graph.
-    public class DriveItemResponse
-    {
-        public List<DriveItem> Value { get; set; }
-    }
+        public async Task<byte[]> DownloadAsync(
+            string remotePath,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(remotePath))
+                throw new ArgumentException("Ruta remota vacía.", nameof(remotePath));
 
-    public class DriveItem
-    {
-        public string Id { get; set; }
-        public string Name { get; set; }
+            var clean = remotePath.TrimStart('/');
+            var req = NewRequest(
+                "{+baseurl}/me/drive/root:/{remotePath}:/content",
+                Method.GET,
+                new Dictionary<string, object> { ["remotePath"] = clean }
+            );
+            var stream = await _graph.RequestAdapter
+                                     .SendPrimitiveAsync<Stream>(
+                                         req,
+                                         errorMapping: null,
+                                         cancellationToken: ct)
+                                     .ConfigureAwait(false);
+
+            await using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms, ct).ConfigureAwait(false);
+            return ms.ToArray();
+        }
+
+        public async Task DeleteAsync(string remotePath, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(remotePath))
+                throw new ArgumentException("Ruta remota vacía.", nameof(remotePath));
+
+            var clean = remotePath.TrimStart('/');
+            var req = NewRequest(
+                "{+baseurl}/me/drive/root:/{remotePath}:",
+                Method.DELETE,
+                new Dictionary<string, object> { ["remotePath"] = clean }
+            );
+            await _graph.RequestAdapter
+                        .SendNoContentAsync(req, cancellationToken: ct)
+                        .ConfigureAwait(false);
+        }
+
+        public async Task<DriveItem> CreateFolderAsync(
+            string parentFolderPath,
+            string folderName,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(parentFolderPath))
+                throw new ArgumentException("Ruta padre vacía.", nameof(parentFolderPath));
+            if (string.IsNullOrWhiteSpace(folderName))
+                throw new ArgumentException("Nombre de carpeta vacío.", nameof(folderName));
+
+            var cleanParent = parentFolderPath.TrimStart('/');
+            var req = NewRequest(
+                "{+baseurl}/me/drive/root:/{parentFolderPath}:/children",
+                Method.POST,
+                new Dictionary<string, object> { ["parentFolderPath"] = cleanParent }
+            );
+
+            var body = new DriveItem
+            {
+                Name = folderName,
+                Folder = new Folder()
+            };
+
+            // ← PASAMOS el REQUEST ADAPTER, no la fábrica de serialización
+            req.SetContentFromParsable(
+                _graph.RequestAdapter,
+                "application/json",
+                body
+            );
+
+            return await _graph.RequestAdapter
+                               .SendAsync<DriveItem>(
+                                   req,
+                                   DriveItem.CreateFromDiscriminatorValue,
+                                   cancellationToken: ct)
+                               .ConfigureAwait(false);
+        }
     }
 }
