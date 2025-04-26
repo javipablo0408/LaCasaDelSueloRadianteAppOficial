@@ -6,9 +6,7 @@ namespace LaCasaDelSueloRadianteApp.Services
 {
     public class MauiMsalAuthService
     {
-        // -------------  IMPORTANTE -------------
-        // Mantener el PCA en un campo        (Singleton = una instancia por app)
-        //----------------------------------------
+        // ---------- configuración ----------
         private readonly IPublicClientApplication _pca;
 
         private readonly string[] _scopes =
@@ -22,40 +20,50 @@ namespace LaCasaDelSueloRadianteApp.Services
             _pca = PublicClientApplicationBuilder
                     .Create("30af0f82-bbeb-4f49-89cd-3ff526bc339b")
 #if ANDROID || IOS
-                    // Esquema recomendado para apps móviles
                     .WithRedirectUri("msal30af0f82-bbeb-4f49-89cd-3ff526bc339b://auth")
 #else
                     .WithRedirectUri("http://localhost")
 #endif
                     .Build();
-
-            // Si quieres persistir cache en todas las plataformas
-            // TokenCacheHelper.EnableSerialization(_pca.UserTokenCache);
         }
 
-        public async Task<AuthenticationResult> AcquireTokenAsync()
+        /*──────────────────────────────────────────────────────────────*/
+        /* 1) Intento SILENCIOSO                                        */
+        /*──────────────────────────────────────────────────────────────*/
+        public async Task<AuthenticationResult?> AcquireTokenSilentAsync()
         {
-            var accounts = await _pca.GetAccountsAsync();
-
+            var acc = (await _pca.GetAccountsAsync()).FirstOrDefault();
             try
             {
                 return await _pca
-                    .AcquireTokenSilent(_scopes, accounts.FirstOrDefault())
+                    .AcquireTokenSilent(_scopes, acc)
                     .ExecuteAsync();
             }
             catch (MsalUiRequiredException)
             {
-                return await _pca
-                    .AcquireTokenInteractive(_scopes)
-                    .ExecuteAsync();
+                return null; // se necesita UI
             }
         }
 
-        public async Task SignOutAsync()
+        /*──────────────────────────────────────────────────────────────*/
+        /* 2) Login INTERACTIVO                                         */
+        /*──────────────────────────────────────────────────────────────*/
+        public async Task<AuthenticationResult> AcquireTokenInteractiveAsync()
         {
-            var accounts = await _pca.GetAccountsAsync();
-            foreach (var account in accounts)
-                await _pca.RemoveAsync(account);
+            return await _pca
+                .AcquireTokenInteractive(_scopes)
+                .ExecuteAsync();
+        }
+
+        /*──────────────────────────────────────────────────────────────*/
+        /* 3) Wrapper COMPATIBLE con código existente                   */
+        /*    - 1º intenta silent                                       */
+        /*    - si null → hace interactive                              */
+        /*──────────────────────────────────────────────────────────────*/
+        public async Task<AuthenticationResult> AcquireTokenAsync()
+        {
+            var silent = await AcquireTokenSilentAsync();
+            return silent ?? await AcquireTokenInteractiveAsync();
         }
     }
 }

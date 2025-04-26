@@ -9,14 +9,6 @@ using System.Threading.Tasks;
 
 namespace LaCasaDelSueloRadianteApp.Services
 {
-    /// <summary>
-    /// Operaciones mínimas con OneDrive:
-    ///  • DownloadAsync   – descarga un archivo como byte[]
-    ///  • UploadFileAsync – sube (PUT) archivos hasta 4 MiB
-    ///  • CreateShareLinkAsync – genera URL pública “view”
-    /// 
-    ///  *Todo funciona vía REST sin usar request-builders de Graph.*
-    /// </summary>
     public class OneDriveService
     {
         private readonly MauiMsalAuthService _auth;
@@ -29,25 +21,22 @@ namespace LaCasaDelSueloRadianteApp.Services
             _http = new HttpClient();
         }
 
-        /*--------------------------------------------------------------
-         *  Helpers
-         *-------------------------------------------------------------*/
-        private async Task<string> GetAccessTokenAsync()
-        {
-            var result = await _auth.AcquireTokenAsync();
-            return result.AccessToken;
-        }
-
+        /*--------------------------------------------------
+         *  Cabecera Authorization (solo si hay token válido)
+         *-------------------------------------------------*/
         private async Task AddAuthHeaderAsync()
         {
-            var token = await GetAccessTokenAsync();
+            var silent = await _auth.AcquireTokenSilentAsync();
+            if (silent == null)
+                throw new InvalidOperationException("LOGIN_REQUIRED");
+
             _http.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", token);
+                new AuthenticationHeaderValue("Bearer", silent.AccessToken);
         }
 
-        /*--------------------------------------------------------------
-         *  Descargar: GET /content
-         *-------------------------------------------------------------*/
+        /*--------------------------------------------------
+         *  Descargar
+         *-------------------------------------------------*/
         public async Task<byte[]> DownloadAsync(string remotePath,
                                                CancellationToken ct = default)
         {
@@ -59,17 +48,15 @@ namespace LaCasaDelSueloRadianteApp.Services
             return await resp.Content.ReadAsByteArrayAsync(ct);
         }
 
-        /*--------------------------------------------------------------
-         *  Subir (hasta 4 MiB): PUT /content
-         *  Para DB grandes (>4 MiB) bastará trocear o aumentar SmallFileLimit.
-         *-------------------------------------------------------------*/
+        /*--------------------------------------------------
+         *  Subir (≤ 4 MiB)
+         *-------------------------------------------------*/
         public async Task UploadFileAsync(string remotePath,
                                           Stream content,
                                           CancellationToken ct = default)
         {
             if (content.Length > SmallFileLimit)
-                throw new NotSupportedException(
-                    "Esta implementación simple admite archivos ≤ 4 MiB");
+                throw new NotSupportedException("Solo se permiten archivos ≤ 4 MiB");
 
             await AddAuthHeaderAsync();
             var url = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/content";
@@ -79,9 +66,9 @@ namespace LaCasaDelSueloRadianteApp.Services
             resp.EnsureSuccessStatusCode();
         }
 
-        /*--------------------------------------------------------------
+        /*--------------------------------------------------
          *  Crear enlace público “view”
-         *-------------------------------------------------------------*/
+         *-------------------------------------------------*/
         public async Task<string> CreateShareLinkAsync(string remotePath,
                                                        string type = "view",
                                                        string scope = "anonymous",
@@ -98,13 +85,12 @@ namespace LaCasaDelSueloRadianteApp.Services
             var resp = await _http.PostAsync(url, content, ct);
             resp.EnsureSuccessStatusCode();
 
-            using var respStream = await resp.Content.ReadAsStreamAsync(ct);
-            using var doc = await JsonDocument.ParseAsync(respStream, cancellationToken: ct);
-            return doc.RootElement
-                      .GetProperty("link")
-                      .GetProperty("webUrl")
-                      .GetString()
-                ?? throw new Exception("No se devolvió link.webUrl");
+            using var js = await resp.Content.ReadAsStreamAsync(ct);
+            using var doc = await JsonDocument.ParseAsync(js, cancellationToken: ct);
+            return doc.RootElement.GetProperty("link")
+                                  .GetProperty("webUrl")
+                                  .GetString()
+                   ?? throw new Exception("No se devolvió link.webUrl");
         }
     }
 }

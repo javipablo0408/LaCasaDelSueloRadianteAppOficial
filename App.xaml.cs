@@ -13,53 +13,65 @@ namespace LaCasaDelSueloRadianteApp
     {
         private readonly IServiceProvider _serviceProvider;
 
+        /*------------------------------------------------------------
+         *  Propiedad estática: da acceso global al contenedor DI
+         *-----------------------------------------------------------*/
+        public static IServiceProvider Services { get; private set; } = default!;
+
         public App(IServiceProvider serviceProvider)
         {
-            // 1) Suscribir excepciones globales para capturar errores no gestionados
-            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
-                Debug.WriteLine("Excepción no controlada: " +
-                    (e.ExceptionObject as Exception)?.ToString());
-            TaskScheduler.UnobservedTaskException += (s, e) =>
+            /*----------------  Manejo de excepciones globales  ----------------*/
+            AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+                Debug.WriteLine("[Unhandled] " + (e.ExceptionObject as Exception));
+            TaskScheduler.UnobservedTaskException += (_, e) =>
             {
-                Debug.WriteLine("Excepción no observada en Task: " +
-                    e.Exception.ToString());
+                Debug.WriteLine("[Unobserved] " + e.Exception);
                 e.SetObserved();
             };
-
+#if WINDOWS
+            Microsoft.UI.Xaml.Application.Current.UnhandledException += (_, e) =>
+            {
+                Debug.WriteLine("[WinUI] " + e.Exception);
+                e.Handled = true;
+            };
+#endif
+            /*----------------  Inyección de dependencias  ----------------*/
             _serviceProvider = serviceProvider;
+            Services = serviceProvider;          //  ← expone el contenedor
+
             InitializeComponent();
 
-        
-
+            /*----------------  Selección de página inicial  ----------------*/
             try
             {
-                // 2) Verificar si el usuario está logueado
+                //  ⚠️  Mientras depuras, puedes forzar 'false' aquí.
                 bool estaLogueado = Preferences.Default.Get("IsLoggedIn", false);
 
                 if (estaLogueado)
                 {
-                    // Ya autenticado → AppShell como MainPage
+                    // Usuario autenticado → AppShell con pestañas
                     MainPage = _serviceProvider.GetRequiredService<AppShell>();
                 }
                 else
                 {
-                    // No autenticado → pantalla de login dentro de NavigationPage
-                    var loginPage = _serviceProvider.GetRequiredService<LoginPage>();
-                    MainPage = new NavigationPage(loginPage);
+                    // No autenticado → LoginPage dentro de NavigationPage
+                    var login = _serviceProvider.GetRequiredService<LoginPage>();
+                    MainPage = new NavigationPage(login);
                 }
             }
             catch (Exception ex)
             {
-                // 3) Mostrar la excepción en pantalla en lugar de cerrar la app
+                // Si algo explota en el arranque, lo mostramos en pantalla
                 MainPage = new ContentPage
                 {
                     Content = new ScrollView
                     {
                         Content = new Label
                         {
-                            Text = $"Se ha producido un error:\n{ex}",
+                            Text = $"Se ha producido un error al iniciar la app:\n{ex}",
                             TextColor = Colors.Red,
-                            LineBreakMode = LineBreakMode.WordWrap
+                            LineBreakMode = LineBreakMode.WordWrap,
+                            Margin = new Thickness(20)
                         }
                     }
                 };

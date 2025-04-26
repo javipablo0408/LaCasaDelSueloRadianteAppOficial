@@ -11,31 +11,29 @@ namespace LaCasaDelSueloRadianteApp
     {
         private readonly DatabaseService _db;
         private readonly OneDriveService _oneDrive;
+
         private string? _phUrl, _condUrl, _concUrl, _turbUrl;
         private const string RemoteFolder = "lacasadelsueloradianteapp";
 
-        public AgregarPage(
-            DatabaseService db,
-            OneDriveService oneDriveService)
+        public AgregarPage(DatabaseService db,
+                           OneDriveService oneDriveService)
         {
             InitializeComponent();
             _db = db;
             _oneDrive = oneDriveService;
         }
 
+        /* ---------- helpers para elegir y subir foto (sin cambios) ---------- */
         private async Task<FileResult?> SeleccionarFotoAsync()
         {
-            var action = await DisplayActionSheet(
-                "Fuente de la foto",
-                "Cancelar", null,
-                "Cámara", "Galería", "Carpeta");
-
-            if (action == "Cancelar")
-                return null;
+            var op = await DisplayActionSheet("Fuente de la foto",
+                                              "Cancelar", null,
+                                              "Cámara", "Galería", "Carpeta");
+            if (op == "Cancelar") return null;
 
             try
             {
-                return action switch
+                return op switch
                 {
                     "Cámara" when MediaPicker.Default.IsCaptureSupported
                               => await MediaPicker.Default.CapturePhotoAsync(),
@@ -55,19 +53,29 @@ namespace LaCasaDelSueloRadianteApp
             }
         }
 
-        private async Task<string> UploadAndShareAsync(
-            FileResult photo,
-            string tipo)
+        private async Task<string?> UploadAndShareAsync(FileResult photo,
+                                                        string tipo)
         {
-            var remotePath = $"{RemoteFolder}/" +
-                             $"{tipo}_{DateTime.Now:yyyyMMddHHmmss}" +
-                             $"{Path.GetExtension(photo.FileName)}";
+            var remotePath = $"{RemoteFolder}/{tipo}_{DateTime.Now:yyyyMMddHHmmss}{Path.GetExtension(photo.FileName)}";
 
             await using var ms = await photo.OpenReadAsync();
-            await _oneDrive.UploadFileAsync(remotePath, ms);
+
+            try
+            {
+                await _oneDrive.UploadFileAsync(remotePath, ms);
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "LOGIN_REQUIRED")
+            {
+                // Token caducado → navegar a LoginPage
+                await Navigation.PushAsync(
+                    App.Services.GetRequiredService<LoginPage>());
+                return null;
+            }
+
             return await _oneDrive.CreateShareLinkAsync(remotePath);
         }
 
+        /* ---------- handlers de botones ---------- */
         private async void OnAdjuntarPhFotoClicked(object s, EventArgs e) =>
             _phUrl = await SeleccionarFotoAsync() is FileResult f
                    ? await UploadAndShareAsync(f, "ph")
@@ -116,7 +124,6 @@ namespace LaCasaDelSueloRadianteApp
                 ValorConductividad = double.TryParse(ConductividadEntry.Text, out var c) ? c : (double?)null,
                 ValorConcentracion = double.TryParse(ConcentracionInhibidorEntry.Text, out var ci) ? ci : (double?)null,
                 ValorTurbidez = double.TryParse(TurbidezEntry.Text, out var t) ? t : (double?)null,
-
                 FotoPhUrl = _phUrl,
                 FotoConductividadUrl = _condUrl,
                 FotoConcentracionUrl = _concUrl,
