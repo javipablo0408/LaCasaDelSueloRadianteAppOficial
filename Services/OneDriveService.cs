@@ -1,6 +1,7 @@
 ﻿// Services/OneDriveService.cs
 using System;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -13,7 +14,8 @@ namespace LaCasaDelSueloRadianteApp.Services
     {
         private readonly MauiMsalAuthService _auth;
         private readonly HttpClient _http;
-        private const long SmallFileLimit = 4 * 1024 * 1024; // 4 MiB
+
+        private const long SmallFileLimit = 4 * 1024 * 1024;   // 4 MiB
 
         public OneDriveService(MauiMsalAuthService auth)
         {
@@ -21,9 +23,9 @@ namespace LaCasaDelSueloRadianteApp.Services
             _http = new HttpClient();
         }
 
-        /*--------------------------------------------------
-         *  Cabecera Authorization (solo si hay token válido)
-         *-------------------------------------------------*/
+        /*----------------------------------------------------*/
+        /*  Cabecera Authorization – exige token SILENCIOSO    */
+        /*----------------------------------------------------*/
         private async Task AddAuthHeaderAsync()
         {
             var silent = await _auth.AcquireTokenSilentAsync();
@@ -34,50 +36,106 @@ namespace LaCasaDelSueloRadianteApp.Services
                 new AuthenticationHeaderValue("Bearer", silent.AccessToken);
         }
 
-        /*--------------------------------------------------
-         *  Descargar
-         *-------------------------------------------------*/
+        /*----------------------------------------------------*/
+        /*  Descargar archivo completo                         */
+        /*----------------------------------------------------*/
         public async Task<byte[]> DownloadAsync(string remotePath,
                                                CancellationToken ct = default)
         {
             await AddAuthHeaderAsync();
-            var url = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/content";
 
+            var url = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/content";
             var resp = await _http.GetAsync(url, ct);
             resp.EnsureSuccessStatusCode();
+
             return await resp.Content.ReadAsByteArrayAsync(ct);
         }
 
-        /*--------------------------------------------------
-         *  Subir (≤ 4 MiB)
-         *-------------------------------------------------*/
+        /*----------------------------------------------------*/
+        /*  Subir ≤ 4 MiB – PUT /content                       */
+        /*----------------------------------------------------*/
         public async Task UploadFileAsync(string remotePath,
                                           Stream content,
                                           CancellationToken ct = default)
         {
             if (content.Length > SmallFileLimit)
-                throw new NotSupportedException("Solo se permiten archivos ≤ 4 MiB");
+                throw new NotSupportedException("Use UploadLargeFileAsync para archivos > 4 MiB");
 
             await AddAuthHeaderAsync();
-            var url = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/content";
 
+            var url = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/content";
             using var sc = new StreamContent(content);
+
             var resp = await _http.PutAsync(url, sc, ct);
             resp.EnsureSuccessStatusCode();
         }
 
-        /*--------------------------------------------------
-         *  Crear enlace público “view”
-         *-------------------------------------------------*/
+        /*----------------------------------------------------*/
+        /*  Subida por BLOQUES (cualquier tamaño)              */
+        /*----------------------------------------------------*/
+        public async Task UploadLargeFileAsync(string remotePath,
+                                               Stream file,
+                                               int chunkSize = 320 * 1024,   // 320 KiB
+                                               CancellationToken ct = default)
+        {
+            await AddAuthHeaderAsync();
+
+            // 1) Crear sesión de subida
+            var createUrl =
+                $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/createUploadSession";
+
+            var sessionResp = await _http.PostAsync(createUrl,
+                                                    new StringContent("{}"), ct);
+            sessionResp.EnsureSuccessStatusCode();
+
+            var uploadUrl = JsonDocument
+                .Parse(await sessionResp.Content.ReadAsStringAsync(ct))
+                .RootElement.GetProperty("uploadUrl").GetString()
+                ?? throw new Exception("UploadUrl nula");
+
+            // 2) Enviar bloques
+            long total = file.Length;
+            long sent = 0;
+            var buffer = new byte[chunkSize];
+
+            while (sent < total)
+            {
+                int read = await file.ReadAsync(buffer.AsMemory(0, chunkSize), ct);
+                var rangeFrom = sent;
+                var rangeTo = sent + read - 1;
+
+                using var content = new ByteArrayContent(buffer, 0, read);
+                content.Headers.ContentRange =
+                    new ContentRangeHeaderValue(rangeFrom, rangeTo, total);
+
+                var put = await _http.PutAsync(uploadUrl, content, ct);
+
+                if (put.IsSuccessStatusCode ||
+                    put.StatusCode == HttpStatusCode.Created ||
+                    put.StatusCode == HttpStatusCode.Accepted)
+                {
+                    sent += read;
+                }
+                else
+                {
+                    throw new Exception($"Chunk upload failed: {put.ReasonPhrase}");
+                }
+            }
+        }
+
+        /*----------------------------------------------------*/
+        /*  Enlace público (view)                              */
+        /*----------------------------------------------------*/
         public async Task<string> CreateShareLinkAsync(string remotePath,
                                                        string type = "view",
                                                        string scope = "anonymous",
                                                        CancellationToken ct = default)
         {
             await AddAuthHeaderAsync();
-            var url = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/createLink";
 
+            var url = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/createLink";
             var body = JsonSerializer.Serialize(new { type, scope });
+
             using var content = new StringContent(body);
             content.Headers.ContentType =
                 new MediaTypeHeaderValue("application/json");
@@ -87,10 +145,11 @@ namespace LaCasaDelSueloRadianteApp.Services
 
             using var js = await resp.Content.ReadAsStreamAsync(ct);
             using var doc = await JsonDocument.ParseAsync(js, cancellationToken: ct);
+
             return doc.RootElement.GetProperty("link")
                                   .GetProperty("webUrl")
                                   .GetString()
-                   ?? throw new Exception("No se devolvió link.webUrl");
+                   ?? throw new Exception("Respuesta sin link.webUrl");
         }
     }
 }

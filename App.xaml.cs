@@ -13,14 +13,10 @@ namespace LaCasaDelSueloRadianteApp
     {
         private readonly IServiceProvider _serviceProvider;
 
-        /*------------------------------------------------------------
-         *  Propiedad estática: da acceso global al contenedor DI
-         *-----------------------------------------------------------*/
         public static IServiceProvider Services { get; private set; } = default!;
 
         public App(IServiceProvider serviceProvider)
         {
-            /*----------------  Manejo de excepciones globales  ----------------*/
             AppDomain.CurrentDomain.UnhandledException += (_, e) =>
                 Debug.WriteLine("[Unhandled] " + (e.ExceptionObject as Exception));
             TaskScheduler.UnobservedTaskException += (_, e) =>
@@ -35,33 +31,48 @@ namespace LaCasaDelSueloRadianteApp
                 e.Handled = true;
             };
 #endif
-            /*----------------  Inyección de dependencias  ----------------*/
             _serviceProvider = serviceProvider;
-            Services = serviceProvider;          //  ← expone el contenedor
+            Services = serviceProvider;
 
             InitializeComponent();
 
-            /*----------------  Selección de página inicial  ----------------*/
+            // Mientras se comprueba el login, muestra una pantalla de carga
+            MainPage = new ContentPage
+            {
+                Content = new ActivityIndicator
+                {
+                    IsRunning = true,
+                    VerticalOptions = LayoutOptions.Center,
+                    HorizontalOptions = LayoutOptions.Center
+                }
+            };
+
+            // Llama a la inicialización asíncrona
+            InitializeAppAsync();
+        }
+
+        private async void InitializeAppAsync()
+        {
             try
             {
-                //  ⚠️  Mientras depuras, puedes forzar 'false' aquí.
-                bool estaLogueado = Preferences.Default.Get("IsLoggedIn", false);
+                // Comprobar si el usuario tiene un token válido
+                var auth = _serviceProvider.GetRequiredService<Services.MauiMsalAuthService>();
+                var token = await auth.AcquireTokenSilentAsync();
+
+                bool estaLogueado = token != null;
 
                 if (estaLogueado)
                 {
-                    // Usuario autenticado → AppShell con pestañas
                     MainPage = _serviceProvider.GetRequiredService<AppShell>();
                 }
                 else
                 {
-                    // No autenticado → LoginPage dentro de NavigationPage
                     var login = _serviceProvider.GetRequiredService<LoginPage>();
                     MainPage = new NavigationPage(login);
                 }
             }
             catch (Exception ex)
             {
-                // Si algo explota en el arranque, lo mostramos en pantalla
                 MainPage = new ContentPage
                 {
                     Content = new ScrollView

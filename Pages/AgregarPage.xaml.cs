@@ -19,16 +19,24 @@ namespace LaCasaDelSueloRadianteApp
                            OneDriveService oneDriveService)
         {
             InitializeComponent();
+
             _db = db;
             _oneDrive = oneDriveService;
+
+            // Ejemplo relleno de pickers
+            TipoServicioPicker.ItemsSource = new[] { "Mantenimiento", "Puesta en marcha" };
+            TipoInstalacionPicker.ItemsSource = new[] { "Suelo radiante", "Radiadores" };
+            FuenteCalorPicker.ItemsSource = new[] { "Caldera gas", "Biomasa", "Bomba calor" };
         }
 
-        /* ---------- helpers para elegir y subir foto (sin cambios) ---------- */
+        /*───────────────────────────────────────────────*/
+        /*  Seleccionar una foto desde cámara / galería  */
+        /*───────────────────────────────────────────────*/
         private async Task<FileResult?> SeleccionarFotoAsync()
         {
             var op = await DisplayActionSheet("Fuente de la foto",
                                               "Cancelar", null,
-                                              "Cámara", "Galería", "Carpeta");
+                                              "Cámara", "Galería", "Archivos");
             if (op == "Cancelar") return null;
 
             try
@@ -36,23 +44,29 @@ namespace LaCasaDelSueloRadianteApp
                 return op switch
                 {
                     "Cámara" when MediaPicker.Default.IsCaptureSupported
-                              => await MediaPicker.Default.CapturePhotoAsync(),
+                          => await MediaPicker.Default.CapturePhotoAsync(),
+
                     "Galería" => await MediaPicker.Default.PickPhotoAsync(),
-                    "Carpeta" => await FilePicker.Default.PickAsync(new PickOptions
+
+                    "Archivos" => await FilePicker.Default.PickAsync(new PickOptions
                     {
                         PickerTitle = "Selecciona imagen",
                         FileTypes = FilePickerFileType.Images
                     }),
+
                     _ => null
                 };
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error foto", ex.Message, "OK");
+                await DisplayAlert("Error al obtener foto", ex.Message, "OK");
                 return null;
             }
         }
 
+        /*───────────────────────────────────────────────*/
+        /*  Sube la imagen a OneDrive y genera URL       */
+        /*───────────────────────────────────────────────*/
         private async Task<string?> UploadAndShareAsync(FileResult photo,
                                                         string tipo)
         {
@@ -62,11 +76,14 @@ namespace LaCasaDelSueloRadianteApp
 
             try
             {
-                await _oneDrive.UploadFileAsync(remotePath, ms);
+                if (ms.Length <= 4 * 1024 * 1024)
+                    await _oneDrive.UploadFileAsync(remotePath, ms);
+                else
+                    await _oneDrive.UploadLargeFileAsync(remotePath, ms);
             }
             catch (InvalidOperationException ex) when (ex.Message == "LOGIN_REQUIRED")
             {
-                // Token caducado → navegar a LoginPage
+                // Token caducado → pedir login
                 await Navigation.PushAsync(
                     App.Services.GetRequiredService<LoginPage>());
                 return null;
@@ -75,7 +92,9 @@ namespace LaCasaDelSueloRadianteApp
             return await _oneDrive.CreateShareLinkAsync(remotePath);
         }
 
-        /* ---------- handlers de botones ---------- */
+        /*───────────────────────────────────────────────*/
+        /*  Botones de adjuntar fotos                    */
+        /*───────────────────────────────────────────────*/
         private async void OnAdjuntarPhFotoClicked(object s, EventArgs e) =>
             _phUrl = await SeleccionarFotoAsync() is FileResult f
                    ? await UploadAndShareAsync(f, "ph")
@@ -96,43 +115,63 @@ namespace LaCasaDelSueloRadianteApp
                      ? await UploadAndShareAsync(f, "turbidez")
                      : _turbUrl;
 
+        /*───────────────────────────────────────────────*/
+        /*  Guardar cliente + servicio                   */
+        /*───────────────────────────────────────────────*/
         private async void OnGuardarClicked(object s, EventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(NombreEntry.Text))
+            try
             {
-                await DisplayAlert("Error", "Nombre requerido", "OK");
-                return;
+                // Validación mínima
+                if (string.IsNullOrWhiteSpace(NombreEntry.Text))
+                {
+                    await DisplayAlert("Error", "El nombre es obligatorio", "OK");
+                    return;
+                }
+
+                /*---------- Cliente ----------*/
+                var cliente = new Cliente
+                {
+                    NombreCliente = NombreEntry.Text!.Trim(),
+                    Direccion = DireccionEntry.Text,
+                    Email = EmailEntry.Text,
+                    Telefono = TelefonoEntry.Text
+                };
+                await _db.GuardarClienteAsync(cliente);
+
+                /*---------- Servicio ----------*/
+                var servicio = new Servicio
+                {
+                    ClienteId = cliente.Id,
+                    Fecha = DateTime.Now,
+                    TipoServicio = TipoServicioPicker.SelectedItem?.ToString(),
+                    TipoInstalacion = TipoInstalacionPicker.SelectedItem?.ToString(),
+                    FuenteCalor = FuenteCalorPicker.SelectedItem?.ToString(),
+
+                    ValorPh = double.TryParse(PhEntry.Text, out var ph) ? ph : (double?)null,
+                    ValorConductividad = double.TryParse(ConductividadEntry.Text, out var c) ? c : (double?)null,
+                    ValorConcentracion = double.TryParse(ConcentracionInhibidorEntry.Text, out var ci) ? ci : (double?)null,
+                    ValorTurbidez = double.TryParse(TurbidezEntry.Text, out var tb) ? tb : (double?)null,
+
+                    FotoPhUrl = _phUrl,
+                    FotoConductividadUrl = _condUrl,
+                    FotoConcentracionUrl = _concUrl,
+                    FotoTurbidezUrl = _turbUrl
+                };
+                await _db.GuardarServicioAsync(servicio);
+
+                await DisplayAlert("Éxito", "Cliente y servicio guardados", "OK");
+                await Navigation.PopAsync();   // volver a pantalla anterior
             }
-
-            var cliente = new Cliente
+            catch (InvalidOperationException ex) when (ex.Message == "LOGIN_REQUIRED")
             {
-                NombreCliente = NombreEntry.Text!,
-                Direccion = DireccionEntry.Text,
-                Email = EmailEntry.Text,
-                Telefono = TelefonoEntry.Text
-            };
-            await _db.GuardarClienteAsync(cliente);
-
-            var servicio = new Servicio
+                await Navigation.PushAsync(
+                    App.Services.GetRequiredService<LoginPage>());
+            }
+            catch (Exception ex)
             {
-                ClienteId = cliente.Id,
-                Fecha = DateTime.Now,
-                TipoServicio = TipoServicioPicker.SelectedItem?.ToString(),
-                TipoInstalacion = TipoInstalacionPicker.SelectedItem?.ToString(),
-                FuenteCalor = FuenteCalorPicker.SelectedItem?.ToString(),
-                ValorPh = double.TryParse(PhEntry.Text, out var ph) ? ph : (double?)null,
-                ValorConductividad = double.TryParse(ConductividadEntry.Text, out var c) ? c : (double?)null,
-                ValorConcentracion = double.TryParse(ConcentracionInhibidorEntry.Text, out var ci) ? ci : (double?)null,
-                ValorTurbidez = double.TryParse(TurbidezEntry.Text, out var t) ? t : (double?)null,
-                FotoPhUrl = _phUrl,
-                FotoConductividadUrl = _condUrl,
-                FotoConcentracionUrl = _concUrl,
-                FotoTurbidezUrl = _turbUrl
-            };
-            await _db.GuardarServicioAsync(servicio);
-
-            await DisplayAlert("Éxito", "Cliente y servicio guardados", "OK");
-            await Navigation.PopAsync();
+                await DisplayAlert("Error al guardar", ex.Message, "OK");
+            }
         }
     }
 }

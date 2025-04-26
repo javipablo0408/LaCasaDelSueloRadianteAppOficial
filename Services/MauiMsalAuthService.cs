@@ -6,7 +6,9 @@ namespace LaCasaDelSueloRadianteApp.Services
 {
     public class MauiMsalAuthService
     {
-        // ---------- configuración ----------
+        /*--------------------------------------------------------------
+         *  Configuración MSAL
+         *-------------------------------------------------------------*/
         private readonly IPublicClientApplication _pca;
 
         private readonly string[] _scopes =
@@ -27,27 +29,28 @@ namespace LaCasaDelSueloRadianteApp.Services
                     .Build();
         }
 
-        /*──────────────────────────────────────────────────────────────*/
-        /* 1) Intento SILENCIOSO                                        */
-        /*──────────────────────────────────────────────────────────────*/
+        /*--------------------------------------------------------------
+         * 1) Intento silencioso → AuthenticationResult? (puede ser null)
+         *-------------------------------------------------------------*/
         public async Task<AuthenticationResult?> AcquireTokenSilentAsync()
         {
-            var acc = (await _pca.GetAccountsAsync()).FirstOrDefault();
+            var account = (await _pca.GetAccountsAsync()).FirstOrDefault();
+
             try
             {
                 return await _pca
-                    .AcquireTokenSilent(_scopes, acc)
+                    .AcquireTokenSilent(_scopes, account)
                     .ExecuteAsync();
             }
             catch (MsalUiRequiredException)
             {
-                return null; // se necesita UI
+                return null;    // se requiere interacción
             }
         }
 
-        /*──────────────────────────────────────────────────────────────*/
-        /* 2) Login INTERACTIVO                                         */
-        /*──────────────────────────────────────────────────────────────*/
+        /*--------------------------------------------------------------
+         * 2) Login interactivo → AuthenticationResult
+         *-------------------------------------------------------------*/
         public async Task<AuthenticationResult> AcquireTokenInteractiveAsync()
         {
             return await _pca
@@ -55,11 +58,9 @@ namespace LaCasaDelSueloRadianteApp.Services
                 .ExecuteAsync();
         }
 
-        /*──────────────────────────────────────────────────────────────*/
-        /* 3) Wrapper COMPATIBLE con código existente                   */
-        /*    - 1º intenta silent                                       */
-        /*    - si null → hace interactive                              */
-        /*──────────────────────────────────────────────────────────────*/
+        /*--------------------------------------------------------------
+         * 3) Wrapper de compatibilidad (silent → interactive)
+         *-------------------------------------------------------------*/
         public async Task<AuthenticationResult> AcquireTokenAsync()
         {
             var silent = await AcquireTokenSilentAsync();
