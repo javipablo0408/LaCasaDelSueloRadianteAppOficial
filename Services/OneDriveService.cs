@@ -1,209 +1,110 @@
-﻿using System;
-using System.Collections.Generic;
+﻿// Services/OneDriveService.cs
+using System;
 using System.IO;
-using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Graph;
-using Microsoft.Graph.Models;
-using Microsoft.Kiota.Abstractions;
 
 namespace LaCasaDelSueloRadianteApp.Services
 {
+    /// <summary>
+    /// Operaciones mínimas con OneDrive:
+    ///  • DownloadAsync   – descarga un archivo como byte[]
+    ///  • UploadFileAsync – sube (PUT) archivos hasta 4 MiB
+    ///  • CreateShareLinkAsync – genera URL pública “view”
+    /// 
+    ///  *Todo funciona vía REST sin usar request-builders de Graph.*
+    /// </summary>
     public class OneDriveService
     {
-        private readonly GraphServiceClient _graph;
-        private const long SmallFileLimit = 4 * 1024 * 1024;   // 4 MiB
-        private const int ChunkSize = 320 * 1024;         // 320 KiB
+        private readonly MauiMsalAuthService _auth;
+        private readonly HttpClient _http;
+        private const long SmallFileLimit = 4 * 1024 * 1024; // 4 MiB
 
         public OneDriveService(MauiMsalAuthService auth)
         {
-            if (auth == null) throw new ArgumentNullException(nameof(auth));
-            var credential = new MsalTokenCredential(auth);
-            _graph = new GraphServiceClient(
-                credential,
-                new[] { "Files.ReadWrite.All", "User.Read" }
-            );
+            _auth = auth ?? throw new ArgumentNullException(nameof(auth));
+            _http = new HttpClient();
         }
 
-        private RequestInformation NewRequest(
-            string urlTemplate,
-            Method method,
-            IDictionary<string, object>? pathParams = null)
+        /*--------------------------------------------------------------
+         *  Helpers
+         *-------------------------------------------------------------*/
+        private async Task<string> GetAccessTokenAsync()
         {
-            if (string.IsNullOrWhiteSpace(urlTemplate))
-                throw new ArgumentException("URL template vacía.", nameof(urlTemplate));
-
-            var info = new RequestInformation
-            {
-                HttpMethod = method,
-                UrlTemplate = urlTemplate
-            };
-            if (pathParams != null)
-                foreach (var kv in pathParams)
-                    info.PathParameters.Add(kv.Key, kv.Value);
-            return info;
+            var result = await _auth.AcquireTokenAsync();
+            return result.AccessToken;
         }
 
-        public async Task<IList<DriveItem>> ListAsync(
-            string? folderPath = null,
-            CancellationToken ct = default)
+        private async Task AddAuthHeaderAsync()
         {
-            var tpl = string.IsNullOrEmpty(folderPath)
-                ? "{+baseurl}/me/drive/root/children"
-                : "{+baseurl}/me/drive/root:/{folderPath}:/children";
-
-            var p = string.IsNullOrEmpty(folderPath)
-                ? null
-                : new Dictionary<string, object> { ["folderPath"] = folderPath.TrimStart('/') };
-
-            var req = NewRequest(tpl, Method.GET, p);
-            var resp = await _graph.RequestAdapter
-                                   .SendAsync<DriveItemCollectionResponse>(
-                                       req,
-                                       DriveItemCollectionResponse.CreateFromDiscriminatorValue,
-                                       cancellationToken: ct)
-                                   .ConfigureAwait(false);
-
-            if (resp?.Value == null)
-                return new List<DriveItem>();
-            return resp.Value is IList<DriveItem> list
-                ? list
-                : resp.Value.ToList();
+            var token = await GetAccessTokenAsync();
+            _http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
         }
 
-        public async Task<DriveItem> UploadFileAsync(
-            string remotePath,
-            Stream content,
-            CancellationToken ct = default)
+        /*--------------------------------------------------------------
+         *  Descargar: GET /content
+         *-------------------------------------------------------------*/
+        public async Task<byte[]> DownloadAsync(string remotePath,
+                                               CancellationToken ct = default)
         {
-            if (string.IsNullOrWhiteSpace(remotePath))
-                throw new ArgumentException("Ruta remota vacía.", nameof(remotePath));
-            if (content == null)
-                throw new ArgumentNullException(nameof(content));
+            await AddAuthHeaderAsync();
+            var url = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/content";
 
-            var clean = remotePath.TrimStart('/');
-            // Carga pequeña
-            if (content.Length <= SmallFileLimit)
-            {
-                var putReq = NewRequest(
-                    "{+baseurl}/me/drive/root:/{remotePath}:/content",
-                    Method.PUT,
-                    new Dictionary<string, object> { ["remotePath"] = clean }
-                );
-                putReq.SetStreamContent(content);
-                return await _graph.RequestAdapter
-                                   .SendAsync<DriveItem>(
-                                       putReq,
-                                       DriveItem.CreateFromDiscriminatorValue,
-                                       cancellationToken: ct)
-                                   .ConfigureAwait(false);
-            }
-
-            // Carga grande
-            var sesReq = NewRequest(
-                "{+baseurl}/me/drive/root:/{remotePath}:/createUploadSession",
-                Method.POST,
-                new Dictionary<string, object> { ["remotePath"] = clean }
-            );
-            var session = await _graph.RequestAdapter
-                                      .SendAsync<UploadSession>(
-                                          sesReq,
-                                          UploadSession.CreateFromDiscriminatorValue,
-                                          cancellationToken: ct)
-                                      .ConfigureAwait(false);
-
-            var uploader = new LargeFileUploadTask<DriveItem>(
-                session,
-                content,
-                ChunkSize,
-                _graph.RequestAdapter   // ← adapter en 4º parámetro
-            );
-            var result = await uploader.UploadAsync(cancellationToken: ct)
-                                       .ConfigureAwait(false);
-            if (result.UploadSucceeded && result.ItemResponse != null)
-                return result.ItemResponse;
-
-            throw new IOException("La carga fragmentada falló.");
+            var resp = await _http.GetAsync(url, ct);
+            resp.EnsureSuccessStatusCode();
+            return await resp.Content.ReadAsByteArrayAsync(ct);
         }
 
-        public async Task<byte[]> DownloadAsync(
-            string remotePath,
-            CancellationToken ct = default)
+        /*--------------------------------------------------------------
+         *  Subir (hasta 4 MiB): PUT /content
+         *  Para DB grandes (>4 MiB) bastará trocear o aumentar SmallFileLimit.
+         *-------------------------------------------------------------*/
+        public async Task UploadFileAsync(string remotePath,
+                                          Stream content,
+                                          CancellationToken ct = default)
         {
-            if (string.IsNullOrWhiteSpace(remotePath))
-                throw new ArgumentException("Ruta remota vacía.", nameof(remotePath));
+            if (content.Length > SmallFileLimit)
+                throw new NotSupportedException(
+                    "Esta implementación simple admite archivos ≤ 4 MiB");
 
-            var clean = remotePath.TrimStart('/');
-            var req = NewRequest(
-                "{+baseurl}/me/drive/root:/{remotePath}:/content",
-                Method.GET,
-                new Dictionary<string, object> { ["remotePath"] = clean }
-            );
-            var stream = await _graph.RequestAdapter
-                                     .SendPrimitiveAsync<Stream>(
-                                         req,
-                                         errorMapping: null,
-                                         cancellationToken: ct)
-                                     .ConfigureAwait(false);
+            await AddAuthHeaderAsync();
+            var url = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/content";
 
-            await using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms, ct).ConfigureAwait(false);
-            return ms.ToArray();
+            using var sc = new StreamContent(content);
+            var resp = await _http.PutAsync(url, sc, ct);
+            resp.EnsureSuccessStatusCode();
         }
 
-        public async Task DeleteAsync(string remotePath, CancellationToken ct = default)
+        /*--------------------------------------------------------------
+         *  Crear enlace público “view”
+         *-------------------------------------------------------------*/
+        public async Task<string> CreateShareLinkAsync(string remotePath,
+                                                       string type = "view",
+                                                       string scope = "anonymous",
+                                                       CancellationToken ct = default)
         {
-            if (string.IsNullOrWhiteSpace(remotePath))
-                throw new ArgumentException("Ruta remota vacía.", nameof(remotePath));
+            await AddAuthHeaderAsync();
+            var url = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/createLink";
 
-            var clean = remotePath.TrimStart('/');
-            var req = NewRequest(
-                "{+baseurl}/me/drive/root:/{remotePath}:",
-                Method.DELETE,
-                new Dictionary<string, object> { ["remotePath"] = clean }
-            );
-            await _graph.RequestAdapter
-                        .SendNoContentAsync(req, cancellationToken: ct)
-                        .ConfigureAwait(false);
-        }
+            var body = JsonSerializer.Serialize(new { type, scope });
+            using var content = new StringContent(body);
+            content.Headers.ContentType =
+                new MediaTypeHeaderValue("application/json");
 
-        public async Task<DriveItem> CreateFolderAsync(
-            string parentFolderPath,
-            string folderName,
-            CancellationToken ct = default)
-        {
-            if (string.IsNullOrWhiteSpace(parentFolderPath))
-                throw new ArgumentException("Ruta padre vacía.", nameof(parentFolderPath));
-            if (string.IsNullOrWhiteSpace(folderName))
-                throw new ArgumentException("Nombre de carpeta vacío.", nameof(folderName));
+            var resp = await _http.PostAsync(url, content, ct);
+            resp.EnsureSuccessStatusCode();
 
-            var cleanParent = parentFolderPath.TrimStart('/');
-            var req = NewRequest(
-                "{+baseurl}/me/drive/root:/{parentFolderPath}:/children",
-                Method.POST,
-                new Dictionary<string, object> { ["parentFolderPath"] = cleanParent }
-            );
-
-            var body = new DriveItem
-            {
-                Name = folderName,
-                Folder = new Folder()
-            };
-
-            // ← PASAMOS el REQUEST ADAPTER, no la fábrica de serialización
-            req.SetContentFromParsable(
-                _graph.RequestAdapter,
-                "application/json",
-                body
-            );
-
-            return await _graph.RequestAdapter
-                               .SendAsync<DriveItem>(
-                                   req,
-                                   DriveItem.CreateFromDiscriminatorValue,
-                                   cancellationToken: ct)
-                               .ConfigureAwait(false);
+            using var respStream = await resp.Content.ReadAsStreamAsync(ct);
+            using var doc = await JsonDocument.ParseAsync(respStream, cancellationToken: ct);
+            return doc.RootElement
+                      .GetProperty("link")
+                      .GetProperty("webUrl")
+                      .GetString()
+                ?? throw new Exception("No se devolvió link.webUrl");
         }
     }
 }

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Threading.Tasks;
 using Microsoft.Maui;
 using Microsoft.Maui.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,51 +14,44 @@ namespace LaCasaDelSueloRadianteApp
     {
         public static MauiApp CreateMauiApp()
         {
-            // 1) Capturar excepciones .NET globales
             AppDomain.CurrentDomain.UnhandledException += (_, e) =>
-                Debug.WriteLine("[UnhandledException] " +
-                    (e.ExceptionObject as Exception)?.ToString());
-
+                Debug.WriteLine("[Unhandled] " + (e.ExceptionObject as Exception));
             TaskScheduler.UnobservedTaskException += (_, e) =>
             {
-                Debug.WriteLine("[UnobservedTaskException] " + e.Exception);
+                Debug.WriteLine("[Unobserved] " + e.Exception);
                 e.SetObserved();
             };
 
 #if WINDOWS
-            // 2) Capturar excepciones WinUI
             Microsoft.UI.Xaml.Application.Current.UnhandledException += (s, e) =>
             {
-                Debug.WriteLine("[WinUI UnhandledException] " + e.Exception);
+                Debug.WriteLine("[WinUI] " + e.Exception);
                 e.Handled = true;
             };
 #endif
 
-            // 3) Crear el builder de MAUI
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
-                .ConfigureFonts(fonts =>
+                .ConfigureFonts(f =>
                 {
-                    fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-                    fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+                    f.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+                    f.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
 
-            // 4) Inyección de dependencias
+            // MSAL + Graph
             builder.Services.AddSingleton<MauiMsalAuthService>();
             builder.Services.AddSingleton<OneDriveService>();
 
-            // Ahora pasamos también el MauiMsalAuthService al constructor de DatabaseService
+            // SQLite + Backup/Restore OneDrive
             builder.Services.AddSingleton<DatabaseService>(sp =>
             {
-                var dbPath = Path.Combine(
-                    FileSystem.AppDataDirectory,
-                    "clientes.db3"
-                );
-                var authService = sp.GetRequiredService<MauiMsalAuthService>();
-                return new DatabaseService(dbPath, authService);
+                var dbPath = Path.Combine(FileSystem.AppDataDirectory, "clientes.db3");
+                var oneDrive = sp.GetRequiredService<OneDriveService>();
+                return new DatabaseService(dbPath, oneDrive);
             });
 
+            // Páginas
             builder.Services.AddTransient<LoginPage>();
             builder.Services.AddTransient<AgregarPage>();
             builder.Services.AddSingleton<AppShell>();

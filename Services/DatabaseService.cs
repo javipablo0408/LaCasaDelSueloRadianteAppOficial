@@ -1,88 +1,79 @@
 ﻿using SQLite;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
-using LaCasaDelSueloRadianteApp.Services; // Para MauiMsalAuthService
-using LaCasaDelSueloRadianteApp;           // Para Cliente y Servicio
+using LaCasaDelSueloRadianteApp;
+using LaCasaDelSueloRadianteApp.Services;
 
 namespace LaCasaDelSueloRadianteApp.Services
 {
     public class DatabaseService
     {
-        private readonly SQLiteAsyncConnection _connection;
-        private readonly MauiMsalAuthService _authService;
+        private readonly string _dbPath;
+        private readonly SQLiteAsyncConnection _conn;
+        private readonly OneDriveService _oneDrive;
+        private const string DbFileName = "clientes.db3";
+        private const string RemoteFolder = "lacasadelsueloradianteapp";
 
-        // Ahora recibe también el MauiMsalAuthService inyectado
-        public DatabaseService(string dbPath, MauiMsalAuthService authService)
+        public DatabaseService(string dbPath, OneDriveService oneDriveService)
         {
-            _connection = new SQLiteAsyncConnection(dbPath);
-            _connection.CreateTableAsync<Cliente>().Wait();
-            _connection.CreateTableAsync<Servicio>().Wait();
+            _dbPath = dbPath
+                        ?? throw new ArgumentNullException(nameof(dbPath));
+            _oneDrive = oneDriveService
+                        ?? throw new ArgumentNullException(nameof(oneDriveService));
 
-            _authService = authService
-                ?? throw new ArgumentNullException(nameof(authService));
+            TryDownloadRemoteDatabase().Wait();
+
+            _conn = new SQLiteAsyncConnection(_dbPath);
+            _conn.CreateTableAsync<Cliente>().Wait();
+            _conn.CreateTableAsync<Servicio>().Wait();
         }
 
-        // Guarda un nuevo cliente
-        public Task<int> GuardarClienteAsync(Cliente cliente) =>
-            _connection.InsertAsync(cliente);
-
-        // Guarda un nuevo servicio
-        public Task<int> GuardarServicioAsync(Servicio servicio) =>
-            _connection.InsertAsync(servicio);
-
-        // Lista todos los clientes
-        public Task<List<Cliente>> ObtenerClientesAsync() =>
-            _connection.Table<Cliente>().ToListAsync();
-
-        // Lista servicios de un cliente
-        public Task<List<Servicio>> ObtenerServiciosAsync(int clienteId) =>
-            _connection.Table<Servicio>()
-                       .Where(s => s.ClienteId == clienteId)
-                       .ToListAsync();
-
-        // Serializa clientes+servicios y sube JSON a OneDrive
-        public async Task SincronizarConOneDriveAsync()
+        private async Task TryDownloadRemoteDatabase()
         {
-            var clientes = await ObtenerClientesAsync();
-            var datosSincronizados = new List<object>();
-
-            foreach (var cliente in clientes)
+            try
             {
-                var servicios = await ObtenerServiciosAsync(cliente.Id);
-                datosSincronizados.Add(new { Cliente = cliente, Servicios = servicios });
+                var remotePath = $"{RemoteFolder}/{DbFileName}";
+                var data = await _oneDrive.DownloadAsync(remotePath);
+                if (data?.Length > 0)
+                    File.WriteAllBytes(_dbPath, data);
             }
-
-            string json = JsonSerializer.Serialize(datosSincronizados);
-            await UploadToOneDrive("sincronizacion.json", json);
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[DB] No hay DB remota: {ex.Message}");
+            }
         }
 
-        // Sube el archivo JSON a OneDrive usando el mismo singleton de authService
-        private async Task UploadToOneDrive(string fileName, string content)
+        private async Task BackupDatabaseAsync()
         {
-            // Reutiliza la instancia inyectada de MauiMsalAuthService
-            var authResult = await _authService.AcquireTokenAsync();
-            var accessToken = authResult.AccessToken;
-
-            using var client = new HttpClient();
-            client.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-
-            var requestUri =
-                $"https://graph.microsoft.com/v1.0/me/drive/root:/Lacasadelsueloradianteapp/{fileName}:/content";
-
-            using var stringContent =
-                new StringContent(content, Encoding.UTF8, "application/json");
-
-            var response = await client.PutAsync(requestUri, stringContent);
-            if (!response.IsSuccessStatusCode)
-                throw new Exception(
-                    $"Error al subir el archivo a OneDrive: {response.ReasonPhrase}");
+            using var fs = File.OpenRead(_dbPath);
+            var remotePath = $"{RemoteFolder}/{DbFileName}";
+            await _oneDrive.UploadFileAsync(remotePath, fs);
         }
+
+        public async Task<int> GuardarClienteAsync(Cliente c)
+        {
+            var r = await _conn.InsertAsync(c);
+            await BackupDatabaseAsync();
+            return r;
+        }
+
+        public async Task<int> GuardarServicioAsync(Servicio s)
+        {
+            var r = await _conn.InsertAsync(s);
+            await BackupDatabaseAsync();
+            return r;
+        }
+
+        public Task<List<Cliente>> ObtenerClientesAsync() =>
+            _conn.Table<Cliente>().ToListAsync();
+
+        public Task<List<Servicio>> ObtenerServiciosAsync(int clienteId) =>
+            _conn.Table<Servicio>()
+                 .Where(x => x.ClienteId == clienteId)
+                 .ToListAsync();
     }
 }
