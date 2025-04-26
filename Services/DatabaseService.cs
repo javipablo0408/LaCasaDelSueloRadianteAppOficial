@@ -10,8 +10,8 @@ namespace LaCasaDelSueloRadianteApp.Services
     public class DatabaseService
     {
         private readonly string _dbPath;
-        private readonly SQLiteAsyncConnection _conn;
         private readonly OneDriveService _oneDrive;
+        private SQLiteAsyncConnection _conn;
 
         private const string DbFileName = "clientes.db3";
         private const string RemoteFolder = "lacasadelsueloradianteapp";
@@ -20,12 +20,22 @@ namespace LaCasaDelSueloRadianteApp.Services
         {
             _dbPath = dbPath ?? throw new ArgumentNullException(nameof(dbPath));
             _oneDrive = oneDrive ?? throw new ArgumentNullException(nameof(oneDrive));
-
-            TryDownloadRemoteDatabase().Wait();
-
             _conn = new SQLiteAsyncConnection(_dbPath);
-            _conn.CreateTableAsync<Cliente>().Wait();
-            _conn.CreateTableAsync<Servicio>().Wait();
+        }
+
+        public async Task InitAsync()
+        {
+            try
+            {
+                await TryDownloadRemoteDatabase();
+                await _conn.CreateTableAsync<Cliente>();
+                await _conn.CreateTableAsync<Servicio>();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[DB] Error inicializando base de datos: {ex.Message}");
+                throw; // Relanzar para que la UI pueda mostrar el error
+            }
         }
 
         private async Task TryDownloadRemoteDatabase()
@@ -35,11 +45,16 @@ namespace LaCasaDelSueloRadianteApp.Services
                 var remotePath = $"{RemoteFolder}/{DbFileName}";
                 var data = await _oneDrive.DownloadAsync(remotePath);
                 if (data?.Length > 0)
+                {
                     File.WriteAllBytes(_dbPath, data);
+                    // Recrear la conexión con el archivo descargado
+                    _conn = new SQLiteAsyncConnection(_dbPath);
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[DB] No se pudo descargar: {ex.Message}");
+                // No relanzar - es normal que falle si es primera ejecución
             }
         }
 
@@ -47,7 +62,7 @@ namespace LaCasaDelSueloRadianteApp.Services
         {
             try
             {
-                // Copiar la base de datos a un archivo temporal para evitar bloqueo
+                // Copiar a temporal para evitar bloqueos
                 var tempPath = Path.Combine(Path.GetTempPath(), DbFileName);
                 File.Copy(_dbPath, tempPath, overwrite: true);
 
@@ -63,7 +78,7 @@ namespace LaCasaDelSueloRadianteApp.Services
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error en backup: {ex.Message}");
+                Debug.WriteLine($"[DB] Error en backup: {ex.Message}");
                 throw;
             }
         }
@@ -86,6 +101,8 @@ namespace LaCasaDelSueloRadianteApp.Services
             _conn.Table<Cliente>().ToListAsync();
 
         public Task<List<Servicio>> ObtenerServiciosAsync(int clienteId) =>
-            _conn.Table<Servicio>().Where(x => x.ClienteId == clienteId).ToListAsync();
+            _conn.Table<Servicio>()
+                 .Where(x => x.ClienteId == clienteId)
+                 .ToListAsync();
     }
 }

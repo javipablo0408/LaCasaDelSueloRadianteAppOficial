@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using LaCasaDelSueloRadianteApp.Services;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Maui;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Storage;
@@ -12,18 +12,19 @@ namespace LaCasaDelSueloRadianteApp
     public partial class App : Application
     {
         private readonly IServiceProvider _serviceProvider;
-
         public static IServiceProvider Services { get; private set; } = default!;
 
         public App(IServiceProvider serviceProvider)
         {
             AppDomain.CurrentDomain.UnhandledException += (_, e) =>
                 Debug.WriteLine("[Unhandled] " + (e.ExceptionObject as Exception));
+
             TaskScheduler.UnobservedTaskException += (_, e) =>
             {
                 Debug.WriteLine("[Unobserved] " + e.Exception);
                 e.SetObserved();
             };
+
 #if WINDOWS
             Microsoft.UI.Xaml.Application.Current.UnhandledException += (_, e) =>
             {
@@ -36,39 +37,30 @@ namespace LaCasaDelSueloRadianteApp
 
             InitializeComponent();
 
-            // Mientras se comprueba el login, muestra una pantalla de carga
-            MainPage = new ContentPage
-            {
-                Content = new ActivityIndicator
-                {
-                    IsRunning = true,
-                    VerticalOptions = LayoutOptions.Center,
-                    HorizontalOptions = LayoutOptions.Center
-                }
-            };
-
-            // Llama a la inicialización asíncrona
-            InitializeAppAsync();
+            // Inicializar la app de forma asíncrona
+            MainThread.BeginInvokeOnMainThread(async () => await InitializeAsync());
         }
 
-        private async void InitializeAppAsync()
+        private async Task InitializeAsync()
         {
             try
             {
-                // Comprobar si el usuario tiene un token válido
+                // Inicializar la base de datos
+                var db = _serviceProvider.GetRequiredService<DatabaseService>();
+                await db.InitAsync();
+
+                // Comprobar login
                 var auth = _serviceProvider.GetRequiredService<Services.MauiMsalAuthService>();
                 var token = await auth.AcquireTokenSilentAsync();
 
-                bool estaLogueado = token != null;
-
-                if (estaLogueado)
+                if (token != null)
                 {
                     MainPage = _serviceProvider.GetRequiredService<AppShell>();
                 }
                 else
                 {
-                    var login = _serviceProvider.GetRequiredService<LoginPage>();
-                    MainPage = new NavigationPage(login);
+                    MainPage = new NavigationPage(
+                        _serviceProvider.GetRequiredService<LoginPage>());
                 }
             }
             catch (Exception ex)
@@ -77,12 +69,29 @@ namespace LaCasaDelSueloRadianteApp
                 {
                     Content = new ScrollView
                     {
-                        Content = new Label
+                        Content = new StackLayout
                         {
-                            Text = $"Se ha producido un error al iniciar la app:\n{ex}",
-                            TextColor = Colors.Red,
-                            LineBreakMode = LineBreakMode.WordWrap,
-                            Margin = new Thickness(20)
+                            Spacing = 10,
+                            Padding = new Thickness(20),
+                            Children =
+                            {
+                                new Label
+                                {
+                                    Text = "Error al iniciar la app:",
+                                    FontAttributes = FontAttributes.Bold
+                                },
+                                new Label
+                                {
+                                    Text = ex.Message,
+                                    TextColor = Colors.Red
+                                },
+                                new Button
+                                {
+                                    Text = "Reintentar",
+                                    Command = new Command(async () =>
+                                        await InitializeAsync())
+                                }
+                            }
                         }
                     }
                 };
