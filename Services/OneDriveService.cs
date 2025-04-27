@@ -1,12 +1,13 @@
-﻿// Services/OneDriveService.cs
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Graph.Models; // Se asume que se usa Microsoft.Graph.Models para otros modelos
 
 namespace LaCasaDelSueloRadianteApp.Services
 {
@@ -15,141 +16,97 @@ namespace LaCasaDelSueloRadianteApp.Services
         private readonly MauiMsalAuthService _auth;
         private readonly HttpClient _http;
 
-        private const long SmallFileLimit = 4 * 1024 * 1024;   // 4 MiB
-
         public OneDriveService(MauiMsalAuthService auth)
         {
             _auth = auth ?? throw new ArgumentNullException(nameof(auth));
             _http = new HttpClient();
         }
 
-        /*----------------------------------------------------*/
-        /*  Cabecera Authorization – exige token SILENCIOSO    */
-        /*----------------------------------------------------*/
+        /// <summary>
+        /// Agrega la cabecera de autorización (Bearer) al cliente HTTP usando el token obtenido.
+        /// </summary>
         private async Task AddAuthHeaderAsync()
         {
-            var silent = await _auth.AcquireTokenSilentAsync();
-            if (silent == null)
-                throw new InvalidOperationException("LOGIN_REQUIRED");
-
+            var authResult = await _auth.AcquireTokenAsync();
             _http.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", silent.AccessToken);
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authResult.AccessToken);
         }
 
-        /*----------------------------------------------------*/
-        /*  Descargar archivo completo                         */
-        /*----------------------------------------------------*/
-        public async Task<byte[]> DownloadAsync(string remotePath,
-                                               CancellationToken ct = default)
+        public async Task UploadFileAsync(string remotePath, Stream content)
         {
-            await AddAuthHeaderAsync();
-
-            var url = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/content";
-            var resp = await _http.GetAsync(url, ct);
-            resp.EnsureSuccessStatusCode();
-
-            return await resp.Content.ReadAsByteArrayAsync(ct);
-        }
-
-        /*----------------------------------------------------*/
-        /*  Subir ≤ 4 MiB – PUT /content                       */
-        /*----------------------------------------------------*/
-        public async Task UploadFileAsync(string remotePath,
-                                          Stream content,
-                                          CancellationToken ct = default)
-        {
-            if (content.Length > SmallFileLimit)
-                throw new NotSupportedException("Use UploadLargeFileAsync para archivos > 4 MiB");
+            if (string.IsNullOrEmpty(remotePath))
+                throw new ArgumentException("La ruta remota no puede ser nula o vacía.", nameof(remotePath));
 
             await AddAuthHeaderAsync();
 
-            var url = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/content";
-            using var sc = new StreamContent(content);
+            // Se asume que la implementación de carga pequeña consiste en un PUT al endpoint de OneDrive.
+            var requestUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath}:/content";
+            using var streamContent = new StreamContent(content);
+            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
 
-            var resp = await _http.PutAsync(url, sc, ct);
-            resp.EnsureSuccessStatusCode();
-        }
-
-        /*----------------------------------------------------*/
-        /*  Subida por BLOQUES (cualquier tamaño)              */
-        /*----------------------------------------------------*/
-        public async Task UploadLargeFileAsync(string remotePath,
-                                               Stream file,
-                                               int chunkSize = 320 * 1024,   // 320 KiB
-                                               CancellationToken ct = default)
-        {
-            await AddAuthHeaderAsync();
-
-            // 1) Crear sesión de subida
-            var createUrl =
-                $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/createUploadSession";
-
-            var sessionResp = await _http.PostAsync(createUrl,
-                                                    new StringContent("{}"), ct);
-            sessionResp.EnsureSuccessStatusCode();
-
-            var uploadUrl = JsonDocument
-                .Parse(await sessionResp.Content.ReadAsStringAsync(ct))
-                .RootElement.GetProperty("uploadUrl").GetString()
-                ?? throw new Exception("UploadUrl nula");
-
-            // 2) Enviar bloques
-            long total = file.Length;
-            long sent = 0;
-            var buffer = new byte[chunkSize];
-
-            while (sent < total)
+            var response = await _http.PutAsync(requestUrl, streamContent);
+            if (!response.IsSuccessStatusCode)
             {
-                int read = await file.ReadAsync(buffer.AsMemory(0, chunkSize), ct);
-                var rangeFrom = sent;
-                var rangeTo = sent + read - 1;
-
-                using var content = new ByteArrayContent(buffer, 0, read);
-                content.Headers.ContentRange =
-                    new ContentRangeHeaderValue(rangeFrom, rangeTo, total);
-
-                var put = await _http.PutAsync(uploadUrl, content, ct);
-
-                if (put.IsSuccessStatusCode ||
-                    put.StatusCode == HttpStatusCode.Created ||
-                    put.StatusCode == HttpStatusCode.Accepted)
-                {
-                    sent += read;
-                }
-                else
-                {
-                    throw new Exception($"Chunk upload failed: {put.ReasonPhrase}");
-                }
+                throw new Exception($"Error al subir el archivo: {response.ReasonPhrase}");
             }
         }
 
-        /*----------------------------------------------------*/
-        /*  Enlace público (view)                              */
-        /*----------------------------------------------------*/
-        public async Task<string> CreateShareLinkAsync(string remotePath,
-                                                       string type = "view",
-                                                       string scope = "anonymous",
-                                                       CancellationToken ct = default)
+        public async Task UploadLargeFileAsync(string remotePath, Stream content)
         {
+            // Aquí se debe implementar la lógica de carga fragmentada para archivos grandes.
+            // Se asume que ya existe esa implementación o se delega a otra clase.
+            throw new NotImplementedException("La carga de archivos grandes aún no se ha implementado.");
+        }
+
+        /// <summary>
+        /// Crea un enlace compartido para el archivo ubicado en la ruta remota especificada.
+        /// Se utiliza el endpoint de createLink de Microsoft Graph para recursos basados en rutas.
+        /// </summary>
+        /// <param name="remotePath">Ruta remota del archivo en OneDrive.</param>
+        /// <param name="ct">Token de cancelación.</param>
+        /// <returns>URL del enlace compartido.</returns>
+        public async Task<string> CreateShareLinkAsync(string remotePath, CancellationToken ct = default)
+        {
+            if (string.IsNullOrEmpty(remotePath))
+                throw new ArgumentException("La ruta remota no puede ser nula o vacía.", nameof(remotePath));
+
             await AddAuthHeaderAsync();
 
-            var url = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath.TrimStart('/')}:/createLink";
-            var body = JsonSerializer.Serialize(new { type, scope });
+            // Se utiliza el endpoint basado en la ruta para crear un enlace compartido.
+            var requestUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath}:/createLink";
 
-            using var content = new StringContent(body);
-            content.Headers.ContentType =
-                new MediaTypeHeaderValue("application/json");
+            // Se especifica el tipo de enlace, por ejemplo "view" para visualización.
+            var body = new { type = "view" };
+            string jsonBody = JsonSerializer.Serialize(body);
+            using var contentJson = new StringContent(jsonBody, Encoding.UTF8, "application/json");
 
-            var resp = await _http.PostAsync(url, content, ct);
-            resp.EnsureSuccessStatusCode();
+            HttpResponseMessage response = await _http.PostAsync(requestUrl, contentJson, ct);
+            if (!response.IsSuccessStatusCode)
+                throw new Exception($"Error al crear el enlace compartido: {response.ReasonPhrase}");
 
-            using var js = await resp.Content.ReadAsStreamAsync(ct);
-            using var doc = await JsonDocument.ParseAsync(js, cancellationToken: ct);
+            string responseContent = await response.Content.ReadAsStringAsync(ct);
 
-            return doc.RootElement.GetProperty("link")
-                                  .GetProperty("webUrl")
-                                  .GetString()
-                   ?? throw new Exception("Respuesta sin link.webUrl");
+            // Se define una clase interna para deserializar la respuesta.
+            var permission = JsonSerializer.Deserialize<PermissionResponse>(responseContent, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+
+            if (permission?.Link == null || string.IsNullOrEmpty(permission.Link.WebUrl))
+                throw new Exception("No se obtuvo el enlace compartido.");
+
+            return permission.Link.WebUrl;
+        }
+
+        // Clases auxiliares para la deserialización de la respuesta del createLink
+        private class PermissionResponse
+        {
+            public ShareLink? Link { get; set; }
+        }
+
+        private class ShareLink
+        {
+            public string? WebUrl { get; set; }
         }
     }
 }

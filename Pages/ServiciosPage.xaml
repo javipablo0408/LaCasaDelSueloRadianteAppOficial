@@ -1,18 +1,17 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="LaCasaDelSueloRadianteApp.ClientesPage"
-             Title="Clientes">
+             x:Class="LaCasaDelSueloRadianteApp.ServiciosPage"
+             Title="Servicios">
     <ContentPage.Content>
-        <CollectionView x:Name="ClientesCollectionView" SelectionMode="Single" Margin="10"
-                    SelectionChanged="OnClienteSelected">
+        <CollectionView x:Name="ServiciosCollectionView" SelectionMode="Single" Margin="10"
+                    SelectionChanged="OnServicioSelected">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
                     <Frame Margin="5" Padding="10" BorderColor="Gray">
                         <StackLayout>
-                            <Label Text="{Binding NombreCliente}" FontAttributes="Bold" FontSize="Medium"/>
-                            <Label Text="{Binding Email}" FontSize="Small" TextColor="DarkGray"/>
-                            <Label Text="{Binding Direccion}" FontSize="Small" TextColor="DarkGray"/>
+                            <Label Text="{Binding TipoServicio}" FontAttributes="Bold" FontSize="Medium"/>
+                            <Label Text="{Binding Fecha, StringFormat='{0:dd/MM/yyyy HH:mm}'}" FontSize="Small"/>
                         </StackLayout>
                     </Frame>
                 </DataTemplate>

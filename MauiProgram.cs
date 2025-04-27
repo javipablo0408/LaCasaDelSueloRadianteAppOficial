@@ -1,7 +1,6 @@
-﻿using System;
-using System.Diagnostics;
-using System.IO;
+﻿using System.IO;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Maui.Controls.Hosting;
 using Microsoft.Maui.Hosting;
 using Microsoft.Maui.Storage;
 using LaCasaDelSueloRadianteApp.Services;
@@ -14,36 +13,35 @@ namespace LaCasaDelSueloRadianteApp
         {
             var builder = MauiApp.CreateBuilder();
 
-            builder.UseMauiApp<App>()
-                   .ConfigureFonts(fonts =>
-                   {
-                       fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-                       fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
-                   });
+            builder
+                .UseMauiApp<App>()                 // registra App
+                .ConfigureFonts(f =>
+                {
+                    f.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+                    f.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+                });
 
-            // Servicios de autenticación
+            /* ---------- Servicios ---------- */
             builder.Services.AddSingleton<MauiMsalAuthService>();
-            builder.Services.AddSingleton<GraphService>();
             builder.Services.AddSingleton<OneDriveService>();
 
-            // Base de datos
+            // DatabaseService necesita el OneDriveService y la ruta del .db3
             builder.Services.AddSingleton<DatabaseService>(sp =>
             {
-                var dbPath = Path.Combine(
-                    FileSystem.AppDataDirectory,
-                    "clientes.db3");
+                var dbPath = Path.Combine(FileSystem.AppDataDirectory, "clientes.db3");
                 var oneDrive = sp.GetRequiredService<OneDriveService>();
                 return new DatabaseService(dbPath, oneDrive);
             });
 
-            // Páginas
+            /* ---------- Páginas ---------- */
             builder.Services.AddTransient<LoginPage>();
             builder.Services.AddTransient<AgregarPage>();
-            builder.Services.AddTransient<ClientesPage>();
-            builder.Services.AddTransient<HistorialPage>();
             builder.Services.AddSingleton<AppShell>();
 
-            return builder.Build();
+            /* ---------- Build & export provider ---------- */
+            var mauiApp = builder.Build();
+            App.Services = mauiApp.Services;      // ←  exposición global
+            return mauiApp;
         }
     }
 }

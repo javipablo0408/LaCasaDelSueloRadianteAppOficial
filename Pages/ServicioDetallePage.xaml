@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="LaCasaDelSueloRadianteApp.ServicioDetallePage"
+             Title="Detalle del Servicio">
+    <ContentPage.Content>
+        <ScrollView>
+            <StackLayout Padding="10" Spacing="10">
+                <!-- Información básica del servicio -->
+                <Label Text="{Binding TipoServicio}" FontAttributes="Bold" FontSize="Large"/>
+                <Label Text="{Binding Fecha, StringFormat='{0:dd/MM/yyyy HH:mm}'}" FontSize="Medium"/>
+                <Label Text="{Binding TipoInstalacion}" FontSize="Medium"/>
+                <Label Text="{Binding FuenteCalor}" FontSize="Medium"/>
+
+                <!-- Valores del servicio -->
+                <Label Text="Valores:" FontAttributes="Bold" FontSize="Medium"/>
+                <Label Text="{Binding ValorPh, StringFormat='pH: {0:F2}'}" FontSize="Small"/>
+                <Label Text="{Binding ValorConductividad, StringFormat='Conductividad: {0:F2}'}" FontSize="Small"/>
+                <Label Text="{Binding ValorConcentracion, StringFormat='Concentración: {0:F2}'}" FontSize="Small"/>
+                <Label Text="{Binding ValorTurbidez, StringFormat='Turbidez: {0:F2}'}" FontSize="Small"/>
+
+                <!-- Imágenes asociadas al servicio -->
+                <Label Text="Imágenes:" FontAttributes="Bold" FontSize="Medium"/>
+                <StackLayout Orientation="Horizontal" Spacing="10">
+                    <Image Source="{Binding FotoPhUrl}" HeightRequest="100" WidthRequest="100" Aspect="AspectFill"/>
+                    <Image Source="{Binding FotoConductividadUrl}" HeightRequest="100" WidthRequest="100" Aspect="AspectFill"/>
+                </StackLayout>
+                <StackLayout Orientation="Horizontal" Spacing="10">
+                    <Image Source="{Binding FotoConcentracionUrl}" HeightRequest="100" WidthRequest="100" Aspect="AspectFill"/>
+                    <Image Source="{Binding FotoTurbidezUrl}" HeightRequest="100" WidthRequest="100" Aspect="AspectFill"/>
+                    <Image Source="https://via.placeholder.com/100" HeightRequest="100" WidthRequest="100" Aspect="AspectFill"/>
+                </StackLayout>
+            </StackLayout>
+        </ScrollView>
+    </ContentPage.Content>
+</ContentPage>

@@ -1,100 +1,75 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Threading.Tasks;
-using LaCasaDelSueloRadianteApp.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Controls;
-using Microsoft.Maui.Graphics;
-using Microsoft.Maui.Storage;
+using Microsoft.Maui.Dispatching;      // MainThread
+using LaCasaDelSueloRadianteApp.Services;
 
 namespace LaCasaDelSueloRadianteApp
 {
     public partial class App : Application
     {
-        private readonly IServiceProvider _serviceProvider;
-        public static IServiceProvider Services { get; private set; } = default!;
+        /* Contenedor DI accesible globalmente  */
+        public static IServiceProvider Services { get; set; } = default!;
 
-        public App(IServiceProvider serviceProvider)
+        public App()        //  NO lleva parámetros
         {
-            AppDomain.CurrentDomain.UnhandledException += (_, e) =>
-                Debug.WriteLine("[Unhandled] " + (e.ExceptionObject as Exception));
-
-            TaskScheduler.UnobservedTaskException += (_, e) =>
-            {
-                Debug.WriteLine("[Unobserved] " + e.Exception);
-                e.SetObserved();
-            };
-
-#if WINDOWS
-            Microsoft.UI.Xaml.Application.Current.UnhandledException += (_, e) =>
-            {
-                Debug.WriteLine("[WinUI] " + e.Exception);
-                e.Handled = true;
-            };
-#endif
-            _serviceProvider = serviceProvider;
-            Services = serviceProvider;
-
             InitializeComponent();
 
-            // Inicializar la app de forma asíncrona
-            MainThread.BeginInvokeOnMainThread(async () => await InitializeAsync());
+            /* Pantalla de carga mientras se inicializa */
+            MainPage = new ContentPage
+            {
+                Content = new ActivityIndicator
+                {
+                    IsRunning = true,
+                    HorizontalOptions = LayoutOptions.Center,
+                    VerticalOptions = LayoutOptions.Center
+                }
+            };
+
+            _ = InitializeAsync();      // fire-and-forget
         }
 
+        /*-----------------------------------------------------*/
         private async Task InitializeAsync()
         {
             try
             {
-                // Inicializar la base de datos
-                var db = _serviceProvider.GetRequiredService<DatabaseService>();
+                /* 1) Init BD (crea tablas si no existen) */
+                var db = Services.GetRequiredService<DatabaseService>();
                 await db.InitAsync();
 
-                // Comprobar login
-                var auth = _serviceProvider.GetRequiredService<Services.MauiMsalAuthService>();
+                /* 2) Intento de login silencioso */
+                var auth = Services.GetRequiredService<MauiMsalAuthService>();
                 var token = await auth.AcquireTokenSilentAsync();
 
-                if (token != null)
+                /* 3) Decidir página inicial en el hilo UI */
+                MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    MainPage = _serviceProvider.GetRequiredService<AppShell>();
-                }
-                else
-                {
-                    MainPage = new NavigationPage(
-                        _serviceProvider.GetRequiredService<LoginPage>());
-                }
+                    MainPage = token != null
+                        ? Services.GetRequiredService<AppShell>()
+                        : new NavigationPage(Services.GetRequiredService<LoginPage>());
+                });
             }
             catch (Exception ex)
             {
-                MainPage = new ContentPage
+                /* Si algo peta, mostrar el mensaje */
+                MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    Content = new ScrollView
+                    MainPage = new ContentPage
                     {
-                        Content = new StackLayout
+                        Content = new ScrollView
                         {
-                            Spacing = 10,
-                            Padding = new Thickness(20),
-                            Children =
+                            Content = new Label
                             {
-                                new Label
-                                {
-                                    Text = "Error al iniciar la app:",
-                                    FontAttributes = FontAttributes.Bold
-                                },
-                                new Label
-                                {
-                                    Text = ex.Message,
-                                    TextColor = Colors.Red
-                                },
-                                new Button
-                                {
-                                    Text = "Reintentar",
-                                    Command = new Command(async () =>
-                                        await InitializeAsync())
-                                }
+                                Text = $"Error al iniciar:\n{ex}",
+                                TextColor = Colors.Red,
+                                Margin = new Thickness(20),
+                                LineBreakMode = LineBreakMode.WordWrap
                             }
                         }
-                    }
-                };
+                    };
+                });
             }
         }
     }
