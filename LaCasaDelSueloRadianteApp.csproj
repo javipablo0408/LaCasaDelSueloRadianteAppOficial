@@ -57,6 +57,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Azure.Identity" Version="1.13.2" />
+		<PackageReference Include="CommunityToolkit.Maui" Version="9.0.0" />
 		<PackageReference Include="Microsoft.Graph" Version="5.76.0" />
 		<PackageReference Include="Microsoft.Graph.Core" Version="3.2.4" />
 		<PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.70.2" />
@@ -67,9 +68,13 @@
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 		<PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
 		<PackageReference Include="SQLiteNetExtensions.Async" Version="2.1.0" />
+		<PackageReference Include="Xamarin.MediaGallery" Version="2.2.1" />
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Compile Update="Controls\MiniImg.xaml.cs">
+	    <DependentUpon>MiniImg.xaml</DependentUpon>
+	  </Compile>
 	  <Compile Update="Pages\LoginPage.xaml.cs">
 	    <DependentUpon>LoginPage.xaml</DependentUpon>
 	  </Compile>
@@ -85,6 +90,9 @@
 	  <Compile Update="Pages\InformacionPage.xaml.cs">
 	    <DependentUpon>InformacionPage.xaml</DependentUpon>
 	  </Compile>
+	  <Compile Update="Pages\FullScreenImagePage.xaml.cs">
+	    <DependentUpon>FullScreenImagePage.xaml</DependentUpon>
+	  </Compile>
 	  <Compile Update="Pages\ServicioDetallePage.xaml.cs">
 	    <DependentUpon>ServicioDetallePage.xaml</DependentUpon>
 	  </Compile>
@@ -94,6 +102,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <MauiXaml Update="Controls\MiniImg.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	  <MauiXaml Update="Pages\LoginPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
@@ -107,6 +118,9 @@
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Pages\InformacionPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\FullScreenImagePage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Pages\ServicioDetallePage.xaml">

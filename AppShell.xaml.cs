@@ -10,6 +10,7 @@ namespace LaCasaDelSueloRadianteApp
 
             // Registrar la ruta para AgregarPage
             Routing.RegisterRoute(nameof(AgregarPage), typeof(AgregarPage));
+            Routing.RegisterRoute(nameof(FullScreenImagePage), typeof(FullScreenImagePage));
         }
     }
 }

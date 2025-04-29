@@ -1,21 +1,52 @@
-using Microsoft.Maui.Controls;
 using LaCasaDelSueloRadianteApp.Services;
 
 namespace LaCasaDelSueloRadianteApp;
 
 public partial class ServicioDetallePage : ContentPage
 {
-    public ServicioDetallePage(Servicio servicio)
+    readonly IImageService _imgSvc;
+    string? _lastUrl;
+
+    public ServicioDetallePage(Servicio servicio, IImageService imgSvc)
     {
         InitializeComponent();
         BindingContext = servicio;
+        _imgSvc = imgSvc;
+    }
 
-        // Depuración: Verificar los datos del modelo
-        System.Diagnostics.Debug.WriteLine($"TipoServicio: {servicio.TipoServicio}");
-        System.Diagnostics.Debug.WriteLine($"ValorPh: {servicio.ValorPh}");
-        System.Diagnostics.Debug.WriteLine($"FotoPhUrl: {servicio.FotoPhUrl}");
-        System.Diagnostics.Debug.WriteLine($"FotoConductividadUrl: {servicio.FotoConductividadUrl}");
-        System.Diagnostics.Debug.WriteLine($"FotoConcentracionUrl: {servicio.FotoConcentracionUrl}");
-        System.Diagnostics.Debug.WriteLine($"FotoTurbidezUrl: {servicio.FotoTurbidezUrl}");
+    async void OnImgTapped(object? sender, string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+
+        _lastUrl = url;
+        await Navigation.PushAsync(new FullScreenImagePage(url));
+    }
+
+    async void OnDownloadClicked(object sender, EventArgs e)
+    {
+        if (_lastUrl is null)
+        {
+            await DisplayAlert("Info", "Toca una imagen primero", "OK");
+            return;
+        }
+
+        DownloadBar.Progress = 0;
+        DownloadBar.IsVisible = true;
+
+        var prog = new Progress<double>(p => DownloadBar.Progress = p);
+        var path = await _imgSvc.DownloadAndSaveAsync(_lastUrl, prog);
+
+        DownloadBar.IsVisible = false;
+
+        if (path is null)
+        {
+            await DisplayAlert("Error", "No se pudo guardar", "OK");
+        }
+        else
+        {
+            await DisplayAlert("Éxito", "Imagen guardada", "Ver");
+            await Launcher.OpenAsync(new OpenFileRequest { File = new ReadOnlyFile(path) });
+        }
     }
 }

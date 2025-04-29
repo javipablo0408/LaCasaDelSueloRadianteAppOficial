@@ -10,6 +10,7 @@ public partial class ServiciosPage : ContentPage
 {
     private readonly DatabaseService _db;
     private readonly Cliente _cliente;
+    private readonly IImageService _imgSvc; // Add a field for IImageService
 
     public ObservableCollection<Servicio> Servicios { get; set; } = new();
 
@@ -23,6 +24,10 @@ public partial class ServiciosPage : ContentPage
         // Recuperar DatabaseService desde el contenedor de servicios
         _db = App.Services.GetService<DatabaseService>()
               ?? throw new InvalidOperationException("No se pudo obtener la instancia de DatabaseService.");
+
+        // Recuperar IImageService desde el contenedor de servicios
+        _imgSvc = App.Services.GetService<IImageService>()
+                 ?? throw new InvalidOperationException("No se pudo obtener la instancia de IImageService.");
     }
 
     protected override async void OnAppearing()
@@ -60,10 +65,10 @@ public partial class ServiciosPage : ContentPage
             System.Diagnostics.Debug.WriteLine($"FotoPhUrl: {servicioSeleccionado.FotoPhUrl}");
 
             // Navegar a la página de detalles del servicio seleccionado
-            await Navigation.PushAsync(new ServicioDetallePage(servicioSeleccionado));
+            await Navigation.PushAsync(new ServicioDetallePage(servicioSeleccionado, _imgSvc)); // Pass _imgSvc as an argument
         }
 
-    // Deseleccionar el servicio después de la navegación
-    ((CollectionView)sender).SelectedItem = null;
+        // Deseleccionar el servicio después de la navegación
+        ((CollectionView)sender).SelectedItem = null;
     }
 }

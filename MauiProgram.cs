@@ -1,47 +1,45 @@
-﻿using System.IO;
+﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Controls.Hosting;
 using Microsoft.Maui.Hosting;
 using Microsoft.Maui.Storage;
 using LaCasaDelSueloRadianteApp.Services;
 
-namespace LaCasaDelSueloRadianteApp
+namespace LaCasaDelSueloRadianteApp;
+
+public static class MauiProgram
 {
-    public static class MauiProgram
+    public static MauiApp CreateMauiApp()
     {
-        public static MauiApp CreateMauiApp()
-        {
-            var builder = MauiApp.CreateBuilder();
+        var builder = MauiApp.CreateBuilder();
 
-            builder
-                .UseMauiApp<App>()                 // registra App
-                .ConfigureFonts(f =>
-                {
-                    f.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-                    f.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
-                });
-
-            /* ---------- Servicios ---------- */
-            builder.Services.AddSingleton<MauiMsalAuthService>();
-            builder.Services.AddSingleton<OneDriveService>();
-
-            // DatabaseService necesita el OneDriveService y la ruta del .db3
-            builder.Services.AddSingleton<DatabaseService>(sp =>
+        builder
+            .UseMauiApp<App>()
+            .UseMauiCommunityToolkit()          // Toolkit
+            .ConfigureFonts(f =>
             {
-                var dbPath = Path.Combine(FileSystem.AppDataDirectory, "clientes.db3");
-                var oneDrive = sp.GetRequiredService<OneDriveService>();
-                return new DatabaseService(dbPath, oneDrive);
+                f.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+                f.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
             });
 
-            /* ---------- Páginas ---------- */
-            builder.Services.AddTransient<LoginPage>();
-            builder.Services.AddTransient<AgregarPage>();
-            builder.Services.AddSingleton<AppShell>();
+        /* ---------- Servicios ---------- */
+        builder.Services.AddSingleton<MauiMsalAuthService>();
+        builder.Services.AddSingleton<OneDriveService>();
+        builder.Services.AddSingleton<IImageService, ImageService>();   // NUEVO
+        builder.Services.AddSingleton<DatabaseService>(sp =>
+        {
+            var dbFile = Path.Combine(FileSystem.AppDataDirectory, "clientes.db3");
+            return new DatabaseService(dbFile, sp.GetRequiredService<OneDriveService>());
+        });
 
-            /* ---------- Build & export provider ---------- */
-            var mauiApp = builder.Build();
-            App.Services = mauiApp.Services;      // ←  exposición global
-            return mauiApp;
-        }
+        /* ---------- Páginas ---------- */
+        builder.Services.AddTransient<LoginPage>();
+        builder.Services.AddTransient<AgregarPage>();
+        builder.Services.AddTransient<ServicioDetallePage>();
+        builder.Services.AddSingleton<AppShell>();
+
+        var app = builder.Build();
+        App.Services = app.Services;            // acceso global opcional
+        return app;
     }
 }
