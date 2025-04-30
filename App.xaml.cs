@@ -9,10 +9,10 @@ namespace LaCasaDelSueloRadianteApp
 {
     public partial class App : Application
     {
-        /* Contenedor DI accesible globalmente  */
+        /* Contenedor DI accesible globalmente */
         public static IServiceProvider Services { get; set; } = default!;
 
-        public App()        //  NO lleva parámetros
+        public App() // NO lleva parámetros
         {
             InitializeComponent();
 
@@ -27,7 +27,7 @@ namespace LaCasaDelSueloRadianteApp
                 }
             };
 
-            _ = InitializeAsync();      // fire-and-forget
+            _ = InitializeAsync(); // fire-and-forget
         }
 
         /*-----------------------------------------------------*/
@@ -35,7 +35,7 @@ namespace LaCasaDelSueloRadianteApp
         {
             try
             {
-                /* 1) Init BD (crea tablas si no existen) */
+                /* 1) Init BD (crea tablas si no existen o restaura desde OneDrive) */
                 var db = Services.GetRequiredService<DatabaseService>();
                 await db.InitAsync();
 
@@ -53,7 +53,7 @@ namespace LaCasaDelSueloRadianteApp
             }
             catch (Exception ex)
             {
-                /* Si algo peta, mostrar el mensaje */
+                /* Si algo falla, mostrar el mensaje */
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     MainPage = new ContentPage

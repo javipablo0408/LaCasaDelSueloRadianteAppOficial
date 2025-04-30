@@ -80,6 +80,22 @@ namespace LaCasaDelSueloRadianteApp.Services
             RegistrarSincronizacion();
         }
 
+        public async Task RestaurarBaseDeDatosAsync(string localPath)
+        {
+            await AddAuthHeaderAsync();
+
+            var remotePath = "lacasadelsueloradianteapp/clientes.db3";
+            var requestUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath}:/content";
+
+            var response = await _http.GetAsync(requestUrl);
+            if (!response.IsSuccessStatusCode)
+                throw new Exception($"Error al descargar la base de datos: {response.ReasonPhrase}");
+
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var fileStream = File.Create(localPath);
+            await stream.CopyToAsync(fileStream);
+        }
+
         private List<CambioLocal> DetectarCambiosLocales()
         {
             var cambios = new List<CambioLocal>();

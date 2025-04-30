@@ -14,13 +14,32 @@ namespace LaCasaDelSueloRadianteApp.Services
 
         public DatabaseService(string dbPath, OneDriveService oneDrive)
         {
-            _dbPath = dbPath;
-            _oneDrive = oneDrive;
+            _dbPath = dbPath ?? throw new ArgumentNullException(nameof(dbPath));
+            _oneDrive = oneDrive ?? throw new ArgumentNullException(nameof(oneDrive));
         }
 
         /* ----------- inicialización diferida ----------- */
         public async Task InitAsync()
         {
+            // Verificar si la base de datos local existe
+            if (!File.Exists(_dbPath))
+            {
+                Console.WriteLine("Base de datos no encontrada. Intentando restaurar desde OneDrive...");
+
+                try
+                {
+                    // Restaurar la base de datos desde OneDrive
+                    await _oneDrive.RestaurarBaseDeDatosAsync(_dbPath);
+                    Console.WriteLine("Base de datos restaurada exitosamente.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error al restaurar la base de datos: {ex.Message}");
+                    throw;
+                }
+            }
+
+            // Inicializar la conexión SQLite
             _conn = new SQLiteAsyncConnection(_dbPath);
             await _conn.CreateTableAsync<Cliente>();
             await _conn.CreateTableAsync<Servicio>();
@@ -40,7 +59,7 @@ namespace LaCasaDelSueloRadianteApp.Services
                 if (fs.Length <= 4 * 1024 * 1024)
                     await _oneDrive.UploadFileAsync(remote, fs);
                 else
-                    await _oneDrive.UploadFileAsync(remote, fs);
+                    await _oneDrive.UploadLargeFileAsync(remote, fs);
 
                 File.Delete(tmp);
             }
