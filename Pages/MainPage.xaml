@@ -2,5 +2,52 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="LaCasaDelSueloRadianteApp.MainPage"
-             Title="Inicio">
+             Title="Tienda"
+             BackgroundColor="White">
+    <ContentPage.Content>
+        <CollectionView ItemsSource="{Binding Productos}" 
+                        SelectionMode="None">
+            <CollectionView.ItemsLayout>
+                <GridItemsLayout Orientation="Vertical" 
+                                 Span="2" 
+                                 VerticalItemSpacing="10" 
+                                 HorizontalItemSpacing="10" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Frame Padding="10" 
+                           Margin="5" 
+                           BorderColor="LightGray" 
+                           CornerRadius="10" 
+                           HasShadow="True">
+                        <VerticalStackLayout Spacing="10">
+                            <!-- Imagen del producto -->
+                            <Image Source="{Binding ImagenUrl}" 
+                                   HeightRequest="150" 
+                                   Aspect="AspectFill" 
+                                   HorizontalOptions="Center" />
+                            <!-- Nombre del producto -->
+                            <Label Text="{Binding Nombre}" 
+                                   FontAttributes="Bold" 
+                                   FontSize="16" 
+                                   HorizontalOptions="Center" 
+                                   TextColor="Black" />
+                            <!-- Precio del producto -->
+                            <Label Text="{Binding Precio, StringFormat='{0:C} IVA incluido'}" 
+                                   FontSize="14" 
+                                   HorizontalOptions="Center" 
+                                   TextColor="Gray" />
+                            <!-- Botón para añadir al carrito -->
+                            <Button Text="Añadir al carrito" 
+                                    BackgroundColor="#E0E0E0" 
+                                    TextColor="Black" 
+                                    CornerRadius="5" 
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.AñadirAlCarritoCommand}" 
+                                    CommandParameter="{Binding}" />
+                        </VerticalStackLayout>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </ContentPage.Content>
 </ContentPage>

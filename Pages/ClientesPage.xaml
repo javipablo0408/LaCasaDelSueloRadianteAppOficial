@@ -4,16 +4,30 @@
              x:Class="LaCasaDelSueloRadianteApp.ClientesPage"
              Title="Clientes">
     <ContentPage.Content>
-        <CollectionView x:Name="ClientesCollectionView" SelectionMode="Single" Margin="10"
-                    SelectionChanged="OnClienteSelected">
+        <CollectionView x:Name="ClientesCollectionView" SelectionMode="None" Margin="10">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Frame Margin="5" Padding="10" BorderColor="Gray">
-                        <StackLayout>
-                            <Label Text="{Binding NombreCliente}" FontAttributes="Bold" FontSize="Medium"/>
-                            <Label Text="{Binding Email}" FontSize="Small" TextColor="DarkGray"/>
-                            <Label Text="{Binding Direccion}" FontSize="Small" TextColor="DarkGray"/>
-                        </StackLayout>
+                    <Frame Margin="5" Padding="10" BorderColor="Gray" CornerRadius="10">
+                        <VerticalStackLayout Spacing="10">
+                            <!-- Información del cliente -->
+                            <Label Text="{Binding NombreCliente}" FontAttributes="Bold" FontSize="Medium" />
+                            <Label Text="{Binding Email}" FontSize="Small" TextColor="DarkGray" />
+                            <Label Text="{Binding Direccion}" FontSize="Small" TextColor="DarkGray" />
+
+                            <!-- Botones de acción -->
+                            <HorizontalStackLayout Spacing="10" Margin="0,10,0,0">
+                                <Button Text="Editar"
+                                        BackgroundColor="LightBlue"
+                                        TextColor="White"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditarCommand}"
+                                        CommandParameter="{Binding}" />
+                                <Button Text="Eliminar"
+                                        BackgroundColor="Red"
+                                        TextColor="White"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EliminarCommand}"
+                                        CommandParameter="{Binding}" />
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
                     </Frame>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
