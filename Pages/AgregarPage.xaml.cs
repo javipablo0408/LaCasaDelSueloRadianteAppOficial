@@ -13,8 +13,8 @@ namespace LaCasaDelSueloRadianteApp
         private readonly DatabaseService _db;
         private readonly OneDriveService _oneDrive;
 
-        /* --------- urls de fotos -------- */
-        private string? _phUrl, _condUrl, _concUrl, _turbUrl;
+        /* --------- rutas locales y remotas -------- */
+        private string? _phLocalPath, _condLocalPath, _concLocalPath, _turbLocalPath;
         private const string RemoteFolder = "lacasadelsueloradianteapp";
 
         public AgregarPage(DatabaseService db, OneDriveService oneDrive)
@@ -31,7 +31,7 @@ namespace LaCasaDelSueloRadianteApp
         }
 
         /* =======================================================
-         *  SELECCIÓN Y SUBIDA DE IMÁGENES
+         *  SELECCIÓN, GUARDADO LOCAL Y SUBIDA DE IMÁGENES
          * =======================================================*/
         private async Task<FileResult?> SeleccionarFotoAsync()
         {
@@ -65,23 +65,30 @@ namespace LaCasaDelSueloRadianteApp
             }
         }
 
-        private async Task<string?> SubirFotoAsync(FileResult file, string slug)
+        private async Task<string?> GuardarYSubirFotoAsync(FileResult file, string slug)
         {
             try
             {
-                var remote = $"{RemoteFolder}/{slug}_{DateTime.Now:yyyyMMddHHmmss}{Path.GetExtension(file.FileName)}";
-                await using Stream stream = await file.OpenReadAsync();
+                // Guardar imagen localmente
+                var localFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                var localPath = Path.Combine(localFolder, $"{slug}_{DateTime.Now:yyyyMMddHHmmss}{Path.GetExtension(file.FileName)}");
 
-                if (stream.Length <= 4 * 1024 * 1024)
-                    await _oneDrive.UploadFileAsync(remote, stream);
-                else
-                    await _oneDrive.UploadLargeFileAsync(remote, stream);
+                await using (var localStream = File.Create(localPath))
+                {
+                    await using var fileStream = await file.OpenReadAsync();
+                    await fileStream.CopyToAsync(localStream);
+                }
 
-                return await _oneDrive.CreateShareLinkAsync(remote);
+                // Subir imagen a OneDrive
+                var remotePath = $"{RemoteFolder}/{Path.GetFileName(localPath)}";
+                await using var uploadStream = File.OpenRead(localPath);
+                await _oneDrive.UploadFileAsync(remotePath, uploadStream);
+
+                return localPath; // Retornar la ruta local
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", $"No se pudo subir la foto: {ex.Message}", "OK");
+                await DisplayAlert("Error", $"No se pudo guardar o subir la foto: {ex.Message}", "OK");
                 return null;
             }
         }
@@ -90,25 +97,25 @@ namespace LaCasaDelSueloRadianteApp
         private async void OnAdjuntarPhFotoClicked(object sender, EventArgs e)
         {
             if (await SeleccionarFotoAsync() is FileResult f)
-                _phUrl = await SubirFotoAsync(f, "ph");
+                _phLocalPath = await GuardarYSubirFotoAsync(f, "ph");
         }
 
         private async void OnAdjuntarConductividadFotoClicked(object sender, EventArgs e)
         {
             if (await SeleccionarFotoAsync() is FileResult f)
-                _condUrl = await SubirFotoAsync(f, "conductividad");
+                _condLocalPath = await GuardarYSubirFotoAsync(f, "conductividad");
         }
 
         private async void OnAdjuntarConcentracionFotoClicked(object sender, EventArgs e)
         {
             if (await SeleccionarFotoAsync() is FileResult f)
-                _concUrl = await SubirFotoAsync(f, "concentracion");
+                _concLocalPath = await GuardarYSubirFotoAsync(f, "concentracion");
         }
 
         private async void OnAdjuntarTurbidezFotoClicked(object sender, EventArgs e)
         {
             if (await SeleccionarFotoAsync() is FileResult f)
-                _turbUrl = await SubirFotoAsync(f, "turbidez");
+                _turbLocalPath = await GuardarYSubirFotoAsync(f, "turbidez");
         }
 
         /* =======================================================
@@ -146,10 +153,10 @@ namespace LaCasaDelSueloRadianteApp
                     ValorConductividad = double.TryParse(ConductividadEntry.Text, out var c) ? c : null,
                     ValorConcentracion = double.TryParse(ConcentracionInhibidorEntry.Text, out var ci) ? ci : null,
                     ValorTurbidez = double.TryParse(TurbidezEntry.Text, out var t) ? t : null,
-                    FotoPhUrl = _phUrl,
-                    FotoConductividadUrl = _condUrl,
-                    FotoConcentracionUrl = _concUrl,
-                    FotoTurbidezUrl = _turbUrl
+                    FotoPhUrl = _phLocalPath,
+                    FotoConductividadUrl = _condLocalPath,
+                    FotoConcentracionUrl = _concLocalPath,
+                    FotoTurbidezUrl = _turbLocalPath
                 };
                 await _db.GuardarServicioAsync(servicio);
 

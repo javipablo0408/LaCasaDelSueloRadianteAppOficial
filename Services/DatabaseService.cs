@@ -69,6 +69,46 @@ namespace LaCasaDelSueloRadianteApp.Services
             }
         }
 
+        /* ----------- manejo de imágenes ----------- */
+        public async Task<string> GuardarImagenAsync(string localPath, string remoteFolder)
+        {
+            try
+            {
+                // Subir la imagen a OneDrive
+                var remotePath = $"{remoteFolder}/{Path.GetFileName(localPath)}";
+                await using var stream = File.OpenRead(localPath);
+                await _oneDrive.UploadFileAsync(remotePath, stream);
+
+                return remotePath; // Retornar la ruta remota en OneDrive
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al guardar la imagen: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task DescargarImagenSiNoExisteAsync(string localPath, string remotePath)
+        {
+            try
+            {
+                if (!File.Exists(localPath))
+                {
+                    await _oneDrive.DescargarImagenSiNoExisteAsync(localPath, remotePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al descargar la imagen: {ex.Message}");
+                throw;
+            }
+        }
+
+        public Task<List<Servicio>> ObtenerTodosLosServiciosAsync()
+        {
+            return _conn.Table<Servicio>().ToListAsync();
+        }
+
         /* ----------- API pública ----------- */
         public async Task<int> GuardarClienteAsync(Cliente c)
         {
