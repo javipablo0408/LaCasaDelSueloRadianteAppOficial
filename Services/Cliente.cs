@@ -10,5 +10,7 @@ namespace LaCasaDelSueloRadianteApp
         public string Direccion { get; set; }
         public string Email { get; set; }
         public string Telefono { get; set; }
+        public DateTime FechaModificacion { get; set; } // Marca de tiempo
+        public bool IsSynced { get; set; } // Flag de sincronización
     }
 }

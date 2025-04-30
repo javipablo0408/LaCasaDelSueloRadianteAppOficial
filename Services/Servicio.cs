@@ -14,6 +14,9 @@ namespace LaCasaDelSueloRadianteApp
         public string TipoInstalacion { get; set; }
         public string FuenteCalor { get; set; }
 
+        public DateTime FechaModificacion { get; set; } // Marca de tiempo
+        public bool IsSynced { get; set; } // Flag de sincronización
+
         public double? ValorPh { get; set; }
         public double? ValorConductividad { get; set; }
         public double? ValorConcentracion { get; set; }

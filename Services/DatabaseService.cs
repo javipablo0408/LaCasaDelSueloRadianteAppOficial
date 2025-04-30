@@ -40,7 +40,7 @@ namespace LaCasaDelSueloRadianteApp.Services
                 if (fs.Length <= 4 * 1024 * 1024)
                     await _oneDrive.UploadFileAsync(remote, fs);
                 else
-                    await _oneDrive.UploadLargeFileAsync(remote, fs);
+                    await _oneDrive.UploadFileAsync(remote, fs);
 
                 File.Delete(tmp);
             }
