@@ -18,6 +18,9 @@ namespace LaCasaDelSueloRadianteApp
         {
             InitializeComponent();
 
+            /* Configurar el contenedor de dependencias */
+            ConfigureServices();
+
             /* Pantalla de carga mientras se inicializa */
             MainPage = new ContentPage
             {
@@ -37,16 +40,21 @@ namespace LaCasaDelSueloRadianteApp
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine("Iniciando la aplicación...");
+
                 /* 1) Inicializar la base de datos */
                 var db = Services.GetRequiredService<DatabaseService>();
                 await db.InitAsync();
+                System.Diagnostics.Debug.WriteLine("Base de datos inicializada correctamente.");
 
                 /* 2) Comprobar y descargar imágenes */
                 await ComprobarYDescargarImagenesAsync(db);
+                System.Diagnostics.Debug.WriteLine("Imágenes comprobadas correctamente.");
 
                 /* 3) Intento de login silencioso */
                 var auth = Services.GetRequiredService<MauiMsalAuthService>();
                 var token = await auth.AcquireTokenSilentAsync();
+                System.Diagnostics.Debug.WriteLine("Autenticación completada.");
 
                 /* 4) Configurar la página inicial */
                 MainThread.BeginInvokeOnMainThread(() =>
@@ -54,10 +62,15 @@ namespace LaCasaDelSueloRadianteApp
                     MainPage = token != null
                         ? Services.GetRequiredService<AppShell>() // Usuario autenticado
                         : new NavigationPage(Services.GetRequiredService<LoginPage>()); // Usuario no autenticado
+
+                    System.Diagnostics.Debug.WriteLine("Página principal configurada.");
                 });
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"Error al iniciar la aplicación: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"StackTrace: {ex.StackTrace}");
+
                 /* Manejo de errores: Mostrar mensaje en pantalla */
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
@@ -97,7 +110,7 @@ namespace LaCasaDelSueloRadianteApp
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al comprobar o descargar imágenes: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error al comprobar o descargar imágenes: {ex.Message}");
             }
         }
 
@@ -110,12 +123,41 @@ namespace LaCasaDelSueloRadianteApp
             {
                 var remotePath = $"lacasadelsueloradianteapp/{Path.GetFileName(localPath)}";
                 await oneDrive.DescargarImagenSiNoExisteAsync(localPath, remotePath);
-                Console.WriteLine($"Imagen {tipo} descargada correctamente: {localPath}");
+                System.Diagnostics.Debug.WriteLine($"Imagen {tipo} descargada correctamente: {localPath}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al descargar la imagen {tipo}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error al descargar la imagen {tipo}: {ex.Message}");
             }
+        }
+
+        /*-----------------------------------------------------*/
+        private void ConfigureServices()
+        {
+            var services = new ServiceCollection();
+
+            /* Registrar servicios necesarios */
+            services.AddSingleton<DatabaseService>(provider =>
+            {
+                var dbPath = Path.Combine(FileSystem.AppDataDirectory, "clientes.db3");
+                var oneDrive = provider.GetRequiredService<OneDriveService>();
+                return new DatabaseService(dbPath, oneDrive);
+            });
+
+            services.AddSingleton<OneDriveService>();
+            services.AddSingleton<MauiMsalAuthService>();
+            services.AddSingleton<IImageService, ImageService>();
+
+            /* Registrar páginas */
+            services.AddSingleton<AppShell>();
+            services.AddTransient<LoginPage>();
+            services.AddTransient<ClientesPage>();
+            services.AddTransient<ServiciosPage>();
+            services.AddTransient<EditarClientePage>();
+            services.AddTransient<HistorialPage>(); // Añadido HistorialPage
+
+            /* Configurar el contenedor de servicios */
+            Services = services.BuildServiceProvider();
         }
     }
 }
