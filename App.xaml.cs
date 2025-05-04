@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Controls;
-using Microsoft.Maui.Dispatching;      // MainThread
+using Microsoft.Maui.Dispatching; // Para MainThread
 using LaCasaDelSueloRadianteApp.Services;
 
 namespace LaCasaDelSueloRadianteApp
@@ -14,11 +14,12 @@ namespace LaCasaDelSueloRadianteApp
         /* Contenedor DI accesible globalmente */
         public static IServiceProvider Services { get; set; } = default!;
 
-        public App() // NO lleva parámetros
+        private readonly System.Timers.Timer _syncTimer; // Especificar el espacio de nombres completo
+
+        public App()
         {
             InitializeComponent();
 
-            /* Pantalla de carga mientras se inicializa */
             MainPage = new ContentPage
             {
                 Content = new ActivityIndicator
@@ -29,36 +30,41 @@ namespace LaCasaDelSueloRadianteApp
                 }
             };
 
-            _ = InitializeAsync(); // fire-and-forget
+            // Configurar el temporizador estándar
+            _syncTimer = new System.Timers.Timer(TimeSpan.FromMinutes(1).TotalMilliseconds)
+            {
+                AutoReset = true, // Repetir automáticamente
+                Enabled = false   // Iniciar manualmente después de la inicialización
+            };
+            _syncTimer.Elapsed += async (s, e) => await VerificarYSincronizarAsync();
+
+            _ = InitializeAsync();
         }
 
-        /*-----------------------------------------------------*/
         private async Task InitializeAsync()
         {
             try
             {
-                /* 1) Inicializar la base de datos */
                 var db = Services.GetRequiredService<DatabaseService>();
                 await db.InitAsync();
 
-                /* 2) Comprobar y descargar imágenes */
                 await ComprobarYDescargarImagenesAsync(db);
 
-                /* 3) Intento de login silencioso */
                 var auth = Services.GetRequiredService<MauiMsalAuthService>();
                 var token = await auth.AcquireTokenSilentAsync();
 
-                /* 4) Configurar la página inicial */
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     MainPage = token != null
-                        ? Services.GetRequiredService<AppShell>() // Usuario autenticado
-                        : new NavigationPage(Services.GetRequiredService<LoginPage>()); // Usuario no autenticado
+                        ? Services.GetRequiredService<AppShell>()
+                        : new NavigationPage(Services.GetRequiredService<LoginPage>());
                 });
+
+                // Iniciar el temporizador después de la inicialización
+                _syncTimer.Start();
             }
             catch (Exception ex)
             {
-                /* Manejo de errores: Mostrar mensaje en pantalla */
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     MainPage = new ContentPage
@@ -78,7 +84,22 @@ namespace LaCasaDelSueloRadianteApp
             }
         }
 
-        /*-----------------------------------------------------*/
+        private async Task VerificarYSincronizarAsync()
+        {
+            try
+            {
+                var db = Services.GetRequiredService<DatabaseService>();
+                var oneDrive = Services.GetRequiredService<OneDriveService>();
+
+                await ComprobarYDescargarImagenesAsync(db);
+                await SincronizarDatosLocalesAsync(db, oneDrive);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error durante la sincronización periódica: {ex.Message}");
+            }
+        }
+
         private async Task ComprobarYDescargarImagenesAsync(DatabaseService db)
         {
             try
@@ -88,7 +109,6 @@ namespace LaCasaDelSueloRadianteApp
 
                 foreach (var servicio in servicios)
                 {
-                    // Comprobar y descargar cada imagen si no existe localmente
                     await DescargarImagenSiNoExisteAsync(servicio.FotoPhUrl, "ph", oneDrive);
                     await DescargarImagenSiNoExisteAsync(servicio.FotoConductividadUrl, "conductividad", oneDrive);
                     await DescargarImagenSiNoExisteAsync(servicio.FotoConcentracionUrl, "concentracion", oneDrive);
@@ -115,6 +135,33 @@ namespace LaCasaDelSueloRadianteApp
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al descargar la imagen {tipo}: {ex.Message}");
+            }
+        }
+
+        private async Task SincronizarDatosLocalesAsync(DatabaseService db, OneDriveService oneDrive)
+        {
+            try
+            {
+                var cambiosLocales = oneDrive.DetectarCambiosLocales();
+
+                foreach (var cambio in cambiosLocales)
+                {
+                    if (cambio.Tipo == "Archivo")
+                    {
+                        using var stream = File.OpenRead(cambio.RutaLocal);
+                        await oneDrive.UploadFileAsync(cambio.RutaRemota, stream);
+                        Console.WriteLine($"Archivo sincronizado: {cambio.RutaLocal}");
+                    }
+                    else if (cambio.Tipo == "BaseDeDatos")
+                    {
+                        await oneDrive.BackupBaseDeDatosAsync();
+                        Console.WriteLine("Base de datos sincronizada con OneDrive.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al sincronizar datos locales: {ex.Message}");
             }
         }
     }

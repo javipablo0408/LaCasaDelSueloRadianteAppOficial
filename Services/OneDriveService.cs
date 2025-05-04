@@ -113,7 +113,7 @@ namespace LaCasaDelSueloRadianteApp.Services
             }
         }
 
-        private List<CambioLocal> DetectarCambiosLocales()
+        public List<CambioLocal> DetectarCambiosLocales()
         {
             var cambios = new List<CambioLocal>();
 
@@ -210,7 +210,7 @@ namespace LaCasaDelSueloRadianteApp.Services
             return DateTime.MinValue;
         }
 
-        private async Task BackupBaseDeDatosAsync()
+        public async Task BackupBaseDeDatosAsync()
         {
             var rutaBaseDeDatos = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "clientes.db3");
 
