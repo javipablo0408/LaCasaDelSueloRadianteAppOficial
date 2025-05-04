@@ -2,44 +2,69 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="LaCasaDelSueloRadianteApp.AgregarPage"
-             Title="Nuevo servicio">
+             Title="Nuevo servicio"
+             BackgroundColor="{DynamicResource PageBackgroundColor}">
 
     <ScrollView>
         <StackLayout Padding="20" Spacing="15">
-
-            <Label Text="Agregar cliente y servicio"
-                   FontSize="24"
+            <!-- Título: Cliente -->
+            <Label Text="Cliente"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   TextColor="{DynamicResource SecondaryTextColor}"
                    HorizontalOptions="Center" />
 
             <!-- Datos del cliente -->
-            <Entry  x:Name="NombreEntry"           Placeholder="Nombre del cliente" />
-            <Entry  x:Name="DireccionEntry"        Placeholder="Dirección" />
-            <Entry  x:Name="EmailEntry"            Placeholder="Email"     Keyboard="Email" />
-            <Entry  x:Name="TelefonoEntry"         Placeholder="Teléfono"  Keyboard="Telephone" />
+            <Entry x:Name="NombreEntry" Placeholder="Nombre del cliente" />
+            <Entry x:Name="DireccionEntry" Placeholder="Dirección" />
+            <Entry x:Name="EmailEntry" Placeholder="Email" Keyboard="Email" />
+            <Entry x:Name="TelefonoEntry" Placeholder="Teléfono" Keyboard="Telephone" />
+
+            <!-- Título: Instalación -->
+            <Label Text="Instalación"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   TextColor="{DynamicResource SecondaryTextColor}"
+                   HorizontalOptions="Center" />
 
             <!-- Datos del servicio -->
-            <Picker x:Name="TipoServicioPicker"     Title="Tipo de servicio" />
-            <Picker x:Name="TipoInstalacionPicker"  Title="Tipo de instalación" />
-            <Picker x:Name="FuenteCalorPicker"      Title="Fuente de calor" />
+            <Picker x:Name="TipoServicioPicker" Title="Tipo de servicio" />
+            <Picker x:Name="TipoInstalacionPicker" Title="Tipo de instalación" />
+            <Picker x:Name="FuenteCalorPicker" Title="Fuente de calor" />
 
-            <!-- Valores analíticos -->
-            <Entry x:Name="PhEntry"                  Placeholder="pH"                Keyboard="Numeric" />
-            <Entry x:Name="ConductividadEntry"       Placeholder="Conductividad"     Keyboard="Numeric" />
-            <Entry x:Name="ConcentracionInhibidorEntry"
-                   Placeholder="Concentración inhibidor"
-                   Keyboard="Numeric" />
-            <Entry x:Name="TurbidezEntry"            Placeholder="Turbidez"          Keyboard="Numeric" />
+            <!-- Título: Valores de la Instalación -->
+            <Label Text="Valores de la Instalación"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   TextColor="{DynamicResource SecondaryTextColor}"
+                   HorizontalOptions="Center" />
 
-            <!-- Fotos -->
-            <Button Text="Adjuntar foto pH"              Clicked="OnAdjuntarPhFotoClicked" />
-            <Button Text="Adjuntar foto conductividad"   Clicked="OnAdjuntarConductividadFotoClicked" />
-            <Button Text="Adjuntar foto concentración"   Clicked="OnAdjuntarConcentracionFotoClicked" />
-            <Button Text="Adjuntar foto turbidez"        Clicked="OnAdjuntarTurbidezFotoClicked" />
+            <!-- Valores analíticos y Fotos -->
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
+                <!-- Fila 1: pH -->
+                <Entry Grid.Row="0" Grid.Column="0" x:Name="PhEntry" Placeholder="pH" Keyboard="Numeric" />
+                <Button Grid.Row="0" Grid.Column="1" Text="Adjuntar foto pH" Clicked="OnAdjuntarPhFotoClicked" />
 
-            <!-- Guardar -->
+                <!-- Fila 2: Conductividad -->
+                <Entry Grid.Row="1" Grid.Column="0" x:Name="ConductividadEntry" Placeholder="Conductividad" Keyboard="Numeric" />
+                <Button Grid.Row="1" Grid.Column="1" Text="Adjuntar foto conductividad" Clicked="OnAdjuntarConductividadFotoClicked" />
+
+                <!-- Fila 3: Concentración inhibidor -->
+                <Entry Grid.Row="2" Grid.Column="0" x:Name="ConcentracionInhibidorEntry" Placeholder="Concentración inhibidor" Keyboard="Numeric" />
+                <Button Grid.Row="2" Grid.Column="1" Text="Adjuntar foto concentración" Clicked="OnAdjuntarConcentracionFotoClicked" />
+
+                <!-- Fila 4: Turbidez -->
+                <Entry Grid.Row="3" Grid.Column="0" x:Name="TurbidezEntry" Placeholder="Turbidez" Keyboard="Numeric" />
+                <Button Grid.Row="3" Grid.Column="1" Text="Adjuntar foto turbidez" Clicked="OnAdjuntarTurbidezFotoClicked" />
+            </Grid>
+
+            <!-- Botón Guardar -->
             <Button Text="Guardar"
                     BackgroundColor="{DynamicResource Primary}"
                     TextColor="White"
+                    CornerRadius="20"
+                    HeightRequest="50"
+                    FontAttributes="Bold"
                     Clicked="OnGuardarClicked" />
 
         </StackLayout>

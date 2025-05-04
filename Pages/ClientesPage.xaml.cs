@@ -1,6 +1,8 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using Microsoft.Maui.Controls;
 using LaCasaDelSueloRadianteApp.Services;
 
@@ -11,6 +13,11 @@ public partial class ClientesPage : ContentPage
     private readonly DatabaseService _db;
 
     public ObservableCollection<Cliente> Clientes { get; set; } = new();
+    public ObservableCollection<Cliente> ClientesFiltrados { get; set; } = new();
+    public string FiltroBusqueda { get; set; }
+    public ICommand EditarCommand { get; }
+    public ICommand EliminarCommand { get; }
+    public ICommand NavegarAServicioCommand { get; }
 
     public ClientesPage()
     {
@@ -19,12 +26,46 @@ public partial class ClientesPage : ContentPage
         // Recuperar DatabaseService desde el contenedor de servicios
         _db = App.Services.GetService<DatabaseService>()
               ?? throw new InvalidOperationException("No se pudo obtener la instancia de DatabaseService.");
+
+        // Comando para navegar a ServicioPage
+        NavegarAServicioCommand = new Command<Cliente>(async (cliente) =>
+        {
+            if (cliente != null)
+            {
+                await Navigation.PushAsync(new ServiciosPage(cliente));
+            }
+        });
+
+        // Comando para editar un cliente
+        EditarCommand = new Command<Cliente>(async (cliente) =>
+        {
+            if (cliente != null)
+            {
+                await Navigation.PushAsync(new EditarClientePage(cliente, _db, Clientes));
+            }
+        });
+
+        // Comando para eliminar un cliente
+        EliminarCommand = new Command<Cliente>(async (cliente) =>
+        {
+            if (cliente != null)
+            {
+                bool confirm = await DisplayAlert("Confirmar", $"¿Deseas eliminar a {cliente.NombreCliente}?", "Sí", "No");
+                if (confirm)
+                {
+                    await _db.EliminarClienteAsync(cliente);
+                    Clientes.Remove(cliente);
+                    FiltrarClientes();
+                }
+            }
+        });
+
+        BindingContext = this;
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-
         await CargarClientesAsync();
     }
 
@@ -39,7 +80,7 @@ public partial class ClientesPage : ContentPage
                 Clientes.Add(cliente);
             }
 
-            ClientesCollectionView.ItemsSource = Clientes;
+            FiltrarClientes();
         }
         catch (Exception ex)
         {
@@ -47,15 +88,37 @@ public partial class ClientesPage : ContentPage
         }
     }
 
-    private async void OnClienteSelected(object sender, SelectionChangedEventArgs e)
+    private void FiltrarClientes()
     {
-        if (e.CurrentSelection.FirstOrDefault() is Cliente clienteSeleccionado)
+        if (string.IsNullOrWhiteSpace(FiltroBusqueda))
         {
-            // Navegar a la página de servicios del cliente seleccionado
-            await Navigation.PushAsync(new ServiciosPage(clienteSeleccionado));
+            ClientesFiltrados.Clear();
+            foreach (var cliente in Clientes)
+            {
+                ClientesFiltrados.Add(cliente);
+            }
+        }
+        else
+        {
+            var textoBusqueda = FiltroBusqueda.ToLower();
+            var resultados = Clientes.Where(c =>
+                (!string.IsNullOrEmpty(c.NombreCliente) && c.NombreCliente.ToLower().Contains(textoBusqueda)) ||
+                (!string.IsNullOrEmpty(c.Direccion) && c.Direccion.ToLower().Contains(textoBusqueda)) ||
+                (!string.IsNullOrEmpty(c.Telefono) && c.Telefono.ToLower().Contains(textoBusqueda)));
+
+            ClientesFiltrados.Clear();
+            foreach (var cliente in resultados)
+            {
+                ClientesFiltrados.Add(cliente);
+            }
         }
 
-        // Deseleccionar el cliente después de la navegación
-        ((CollectionView)sender).SelectedItem = null;
+        ClientesCollectionView.ItemsSource = ClientesFiltrados;
+    }
+
+    private void OnSearchBarTextChanged(object sender, TextChangedEventArgs e)
+    {
+        FiltroBusqueda = e.NewTextValue;
+        FiltrarClientes();
     }
 }

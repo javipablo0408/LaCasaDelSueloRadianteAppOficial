@@ -110,6 +110,8 @@ namespace LaCasaDelSueloRadianteApp.Services
         }
 
         /* ----------- API pública ----------- */
+
+        // Guardar un nuevo cliente
         public async Task<int> GuardarClienteAsync(Cliente c)
         {
             var id = await _conn.InsertAsync(c);
@@ -117,6 +119,7 @@ namespace LaCasaDelSueloRadianteApp.Services
             return id;
         }
 
+        // Guardar un nuevo servicio
         public async Task<int> GuardarServicioAsync(Servicio s)
         {
             var id = await _conn.InsertAsync(s);
@@ -124,12 +127,46 @@ namespace LaCasaDelSueloRadianteApp.Services
             return id;
         }
 
+        // Obtener todos los clientes
         public Task<List<Cliente>> ObtenerClientesAsync() =>
             _conn.Table<Cliente>().ToListAsync();
 
+        // Obtener servicios de un cliente específico
         public Task<List<Servicio>> ObtenerServiciosAsync(int clienteId) =>
             _conn.Table<Servicio>()
                  .Where(s => s.ClienteId == clienteId)
                  .ToListAsync();
+
+        // Actualizar un cliente existente
+        public async Task<int> ActualizarClienteAsync(Cliente c)
+        {
+            var rowsAffected = await _conn.UpdateAsync(c);
+            await BackupAsync();
+            return rowsAffected;
+        }
+
+        // Actualizar un servicio existente
+        public async Task<int> ActualizarServicioAsync(Servicio s)
+        {
+            var rowsAffected = await _conn.UpdateAsync(s);
+            await BackupAsync();
+            return rowsAffected;
+        }
+
+        // Eliminar un cliente
+        public async Task<int> EliminarClienteAsync(Cliente c)
+        {
+            var rowsAffected = await _conn.DeleteAsync(c);
+            await BackupAsync();
+            return rowsAffected;
+        }
+
+        // Eliminar un servicio
+        public async Task<int> EliminarServicioAsync(Servicio s)
+        {
+            var rowsAffected = await _conn.DeleteAsync(s);
+            await BackupAsync();
+            return rowsAffected;
+        }
     }
 }

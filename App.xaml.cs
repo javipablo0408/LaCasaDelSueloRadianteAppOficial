@@ -47,11 +47,14 @@ namespace LaCasaDelSueloRadianteApp
             {
                 var db = Services.GetRequiredService<DatabaseService>();
                 await db.InitAsync();
+                System.Diagnostics.Debug.WriteLine("Base de datos inicializada correctamente.");
 
                 await ComprobarYDescargarImagenesAsync(db);
+                System.Diagnostics.Debug.WriteLine("Imágenes comprobadas correctamente.");
 
                 var auth = Services.GetRequiredService<MauiMsalAuthService>();
                 var token = await auth.AcquireTokenSilentAsync();
+                System.Diagnostics.Debug.WriteLine("Autenticación completada.");
 
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
@@ -117,7 +120,7 @@ namespace LaCasaDelSueloRadianteApp
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al comprobar o descargar imágenes: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error al comprobar o descargar imágenes: {ex.Message}");
             }
         }
 
@@ -130,11 +133,11 @@ namespace LaCasaDelSueloRadianteApp
             {
                 var remotePath = $"lacasadelsueloradianteapp/{Path.GetFileName(localPath)}";
                 await oneDrive.DescargarImagenSiNoExisteAsync(localPath, remotePath);
-                Console.WriteLine($"Imagen {tipo} descargada correctamente: {localPath}");
+                System.Diagnostics.Debug.WriteLine($"Imagen {tipo} descargada correctamente: {localPath}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al descargar la imagen {tipo}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error al descargar la imagen {tipo}: {ex.Message}");
             }
         }
 

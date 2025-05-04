@@ -4,19 +4,63 @@
              x:Class="LaCasaDelSueloRadianteApp.ClientesPage"
              Title="Clientes">
     <ContentPage.Content>
-        <CollectionView x:Name="ClientesCollectionView" SelectionMode="Single" Margin="10"
-                    SelectionChanged="OnClienteSelected">
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Frame Margin="5" Padding="10" BorderColor="Gray">
-                        <StackLayout>
-                            <Label Text="{Binding NombreCliente}" FontAttributes="Bold" FontSize="Medium"/>
-                            <Label Text="{Binding Email}" FontSize="Small" TextColor="DarkGray"/>
-                            <Label Text="{Binding Direccion}" FontSize="Small" TextColor="DarkGray"/>
-                        </StackLayout>
-                    </Frame>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+        <Grid RowDefinitions="Auto,*">
+            <!-- Encabezado -->
+            <VerticalStackLayout Grid.Row="0" Padding="10" Spacing="10">
+                <Label Text="Lista de Clientes" 
+                       FontSize="Large" 
+                       FontAttributes="Bold" 
+                       HorizontalOptions="Center" />
+                <SearchBar Placeholder="Buscar cliente..." 
+                           Text="{Binding FiltroBusqueda}" 
+                           TextChanged="OnSearchBarTextChanged" />
+            </VerticalStackLayout>
+
+            <!-- Lista de clientes -->
+            <CollectionView Grid.Row="1" x:Name="ClientesCollectionView" 
+                            SelectionMode="None" 
+                            Margin="10"
+                            ItemsSource="{Binding ClientesFiltrados}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Frame Margin="5" Padding="10" BorderColor="Gray" CornerRadius="10">
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                                <!-- Información del cliente -->
+                                <VerticalStackLayout Grid.Column="0" Grid.RowSpan="3" Spacing="5">
+                                    <Label Text="{Binding NombreCliente}" FontAttributes="Bold" FontSize="Medium">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.NavegarAServicioCommand}" 
+                                                                  CommandParameter="{Binding}" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                    <Label Text="{Binding Email}" FontSize="Small" TextColor="DarkGray" />
+                                    <Label Text="{Binding Direccion}" FontSize="Small" TextColor="DarkGray" />
+                                </VerticalStackLayout>
+
+                                <!-- Botones de acción -->
+                                <VerticalStackLayout Grid.Column="1" Grid.RowSpan="3" VerticalOptions="Center" Spacing="10">
+                                    <Button Text="Editar"
+                                            BackgroundColor="LightBlue"
+                                            TextColor="White"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditarCommand}"
+                                            CommandParameter="{Binding}" />
+                                    <Button Text="Eliminar"
+                                            BackgroundColor="Red"
+                                            TextColor="White"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EliminarCommand}"
+                                            CommandParameter="{Binding}" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Frame>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <!-- Indicador de carga -->
+            <ActivityIndicator IsRunning="{Binding IsCargando}" 
+                               IsVisible="{Binding IsCargando}" 
+                               VerticalOptions="Center" 
+                               HorizontalOptions="Center" />
+        </Grid>
     </ContentPage.Content>
 </ContentPage>

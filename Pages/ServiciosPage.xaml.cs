@@ -65,7 +65,7 @@ public partial class ServiciosPage : ContentPage
             System.Diagnostics.Debug.WriteLine($"FotoPhUrl: {servicioSeleccionado.FotoPhUrl}");
 
             // Navegar a la página de detalles del servicio seleccionado
-            await Navigation.PushAsync(new ServicioDetallePage(servicioSeleccionado, _imgSvc)); // Pass _imgSvc as an argument
+            await Navigation.PushAsync(new ServicioDetallePage(servicioSeleccionado, _cliente, _imgSvc)); // Ahora se pasa _cliente
         }
 
         // Deseleccionar el servicio después de la navegación

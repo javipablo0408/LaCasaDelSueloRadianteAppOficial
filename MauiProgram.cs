@@ -36,6 +36,7 @@ public static class MauiProgram
         builder.Services.AddTransient<LoginPage>();
         builder.Services.AddTransient<AgregarPage>();
         builder.Services.AddTransient<ServicioDetallePage>();
+        builder.Services.AddTransient<HistorialPage>();  // Añadido HistorialPage
         builder.Services.AddSingleton<AppShell>();
 
         var app = builder.Build();

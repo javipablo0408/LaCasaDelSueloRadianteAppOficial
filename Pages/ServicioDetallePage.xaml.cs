@@ -7,10 +7,17 @@ public partial class ServicioDetallePage : ContentPage
     readonly IImageService _imgSvc;
     string? _lastUrl;
 
-    public ServicioDetallePage(Servicio servicio, IImageService imgSvc)
+    public ServicioDetallePage(Servicio servicio, Cliente cliente, IImageService imgSvc)
     {
         InitializeComponent();
-        BindingContext = servicio;
+
+        // Combinar datos del cliente y servicio en el BindingContext
+        BindingContext = new
+        {
+            Cliente = cliente, // Pasar el cliente completo
+            Servicio = servicio // Pasar el servicio completo
+        };
+
         _imgSvc = imgSvc;
     }
 
@@ -48,5 +55,41 @@ public partial class ServicioDetallePage : ContentPage
             await DisplayAlert("Éxito", "Imagen guardada", "Ver");
             await Launcher.OpenAsync(new OpenFileRequest { File = new ReadOnlyFile(path) });
         }
+    }
+
+    // Método para manejar errores de navegación
+    protected override bool OnBackButtonPressed()
+    {
+        // Puedes agregar lógica personalizada aquí si es necesario
+        return base.OnBackButtonPressed();
+    }
+
+    // Método para actualizar la barra de progreso
+    void UpdateProgressBar(double progress)
+    {
+        if (DownloadBar != null)
+        {
+            DownloadBar.Progress = progress;
+        }
+    }
+
+    // Método para limpiar el estado al salir de la página
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        _lastUrl = null; // Limpiar la última URL seleccionada
+    }
+
+    // Método para inicializar datos adicionales si es necesario
+    void InitializeData()
+    {
+        // Aquí puedes agregar lógica para inicializar datos adicionales
+        System.Diagnostics.Debug.WriteLine("Datos inicializados correctamente.");
+    }
+
+    // Método para manejar errores de descarga
+    async Task HandleDownloadError(Exception ex)
+    {
+        await DisplayAlert("Error", $"Ocurrió un error durante la descarga: {ex.Message}", "OK");
     }
 }
