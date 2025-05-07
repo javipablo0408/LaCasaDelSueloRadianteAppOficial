@@ -1,16 +1,15 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Controls;
-using Microsoft.Maui.Dispatching; // Para MainThread
+using Microsoft.Maui.Dispatching;
 using LaCasaDelSueloRadianteApp.Services;
-using Microsoft.Maui.Storage;  // Para FileSystem.AppDataDirectory
+using Microsoft.Maui.Storage;
 
 namespace LaCasaDelSueloRadianteApp
 {
-    public partial class App : Application
+    public partial class App : Application, IDisposable
     {
         public static IServiceProvider Services { get; set; } = default!;
 
@@ -31,7 +30,7 @@ namespace LaCasaDelSueloRadianteApp
                 }
             };
 
-            // Configurar el temporizador para sincronización periódica (cada minuto)
+            // Configurar el temporizador para sincronización periódica (cada 15 minutos)
             _syncTimer = new System.Timers.Timer(TimeSpan.FromMinutes(1).TotalMilliseconds)
             {
                 AutoReset = true,
@@ -66,7 +65,7 @@ namespace LaCasaDelSueloRadianteApp
                         : new NavigationPage(Services.GetRequiredService<LoginPage>());
                 });
 
-                // Inicia la sincronización mayor (se invoca desde el temporizador)
+                // Inicia la sincronización periódica
                 _syncTimer.Start();
             }
             catch (Exception ex)
@@ -104,7 +103,7 @@ namespace LaCasaDelSueloRadianteApp
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error durante la sincronización periódica: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error durante la sincronización periódica: {ex.Message}");
             }
         }
 
@@ -157,6 +156,11 @@ namespace LaCasaDelSueloRadianteApp
             {
                 System.Diagnostics.Debug.WriteLine($"Error al descargar la imagen {tipo}: {ex.Message}");
             }
+        }
+
+        public void Dispose()
+        {
+            _syncTimer?.Dispose();
         }
     }
 }

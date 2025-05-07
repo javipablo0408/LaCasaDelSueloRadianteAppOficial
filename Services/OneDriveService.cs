@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Graph.Models;
 using Microsoft.Maui.Storage;
+using LaCasaDelSueloRadianteApp.Utilities;
 
 namespace LaCasaDelSueloRadianteApp.Services
 {
@@ -65,6 +67,19 @@ namespace LaCasaDelSueloRadianteApp.Services
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authResult.AccessToken);
         }
 
+        /// <summary>
+        /// Calcula el hash SHA256 a partir del contenido (texto) recibido.
+        /// </summary>
+        private string ComputeHashFromContent(string content)
+        {
+            using var sha256 = SHA256.Create();
+            var bytes = Encoding.UTF8.GetBytes(content);
+            return BitConverter.ToString(sha256.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
+        }
+
+        /// <summary>
+        /// Compara archivos locales y remotos usando fecha y hash, maneja conflictos de acuerdo a la estrategia.
+        /// </summary>
         public async Task SincronizarBidireccionalAsync(CancellationToken ct = default)
         {
             await AddAuthHeaderAsync();
@@ -74,14 +89,24 @@ namespace LaCasaDelSueloRadianteApp.Services
                 var cambiosLocales = DetectarCambiosLocales();
                 var cambiosRemotos = await ObtenerCambiosRemotosAsync(ct);
 
+                // Procesa cambios locales
                 foreach (var cambio in cambiosLocales)
                 {
                     var nombreArchivo = Path.GetFileName(cambio.RutaLocal);
-                    var remoteCambio = cambiosRemotos.FirstOrDefault(cr => cr.Ruta != null && cr.Ruta.Equals(nombreArchivo, StringComparison.OrdinalIgnoreCase));
+                    var remoteCambio = cambiosRemotos.FirstOrDefault(cr => !string.IsNullOrEmpty(cr.Ruta) &&
+                                                     cr.Ruta.Equals(nombreArchivo, StringComparison.OrdinalIgnoreCase));
 
+                    // Si ya existe versión remota, se compara fecha y hash
                     if (remoteCambio != null)
                     {
+                        string localHash = HashUtility.ComputeSHA256(cambio.RutaLocal);
+                        string remoteHash = ComputeHashFromContent(remoteCambio.Contenido);
+
+                        if (string.Equals(localHash, remoteHash, StringComparison.OrdinalIgnoreCase))
+                            continue;
+
                         var fechaLocal = File.GetLastWriteTime(cambio.RutaLocal);
+
                         if (fechaLocal > remoteCambio.FechaModificacion)
                         {
                             if (ConflictResolutionStrategy == ConflictStrategy.LocalPriority || (!ExisteConflicto(remoteCambio)))
@@ -96,6 +121,12 @@ namespace LaCasaDelSueloRadianteApp.Services
                                     await BackupBaseDeDatosAsync();
                                 }
                             }
+                            else if (ConflictResolutionStrategy == ConflictStrategy.ManualMerge)
+                            {
+                                await ResolverConflictoAsync(remoteCambio, cambio.RutaLocal);
+                                using var stream = File.OpenRead(cambio.RutaLocal);
+                                await UploadFileAsync(cambio.RutaRemota, stream);
+                            }
                         }
                         else if (fechaLocal < remoteCambio.FechaModificacion)
                         {
@@ -103,10 +134,16 @@ namespace LaCasaDelSueloRadianteApp.Services
                             {
                                 AplicarCambioRemoto(remoteCambio);
                             }
+                            else if (ConflictResolutionStrategy == ConflictStrategy.ManualMerge)
+                            {
+                                await ResolverConflictoAsync(remoteCambio, cambio.RutaLocal);
+                                AplicarCambioRemoto(remoteCambio);
+                            }
                         }
                     }
                     else
                     {
+                        // Si no existe versión remota, se sube el registro (archivo o BD)
                         if (cambio.Tipo == "Archivo")
                         {
                             using var stream = File.OpenRead(cambio.RutaLocal);
@@ -119,8 +156,13 @@ namespace LaCasaDelSueloRadianteApp.Services
                     }
                 }
 
+                // Procesa registros remotos que no existen localmente
                 foreach (var cambioRemoto in cambiosRemotos)
                 {
+                    // Verificar que el nombre del archivo remoto no sea nulo o vacío
+                    if (string.IsNullOrEmpty(cambioRemoto.Ruta))
+                        continue;
+
                     var rutaLocal = Path.Combine(RutaBaseLocal, cambioRemoto.Ruta);
                     if (!File.Exists(rutaLocal))
                     {
@@ -128,11 +170,9 @@ namespace LaCasaDelSueloRadianteApp.Services
                     }
                 }
 
-                var remoteFileNames = cambiosRemotos
-                    .Where(cr => cr.Ruta != null)
-                    .Select(cr => cr.Ruta)
-                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
+                // Revisar archivos locales eliminados en OneDrive para re-sincronizarlos
+                var remoteFileNames = cambiosRemotos.Where(cr => !string.IsNullOrEmpty(cr.Ruta)).Select(cr => cr.Ruta)
+                                                      .ToHashSet(StringComparer.OrdinalIgnoreCase);
                 var localFiles = Directory.GetFiles(RutaBaseLocal);
                 foreach (var localFile in localFiles)
                 {
@@ -219,7 +259,7 @@ namespace LaCasaDelSueloRadianteApp.Services
                     {
                         Tipo = "Archivo",
                         RutaLocal = archivo,
-                        RutaRemota = $"ruta/remota/{infoArchivo.Name}"
+                        RutaRemota = $"lacasadelsueloradianteapp/{infoArchivo.Name}"
                     });
                 }
             }
@@ -246,21 +286,15 @@ namespace LaCasaDelSueloRadianteApp.Services
             var json = await response.Content.ReadAsStringAsync(ct);
             try
             {
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                };
-
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 var delta = JsonSerializer.Deserialize<DeltaResponse>(json, options);
                 var cambios = delta?.value ?? new List<CambioRemoto>();
 
-                // Detectar elementos eliminados
+                // Marcar elementos eliminados
                 foreach (var item in cambios)
                 {
-                    if (item.Tipo == null && item.Ruta == null) // Elemento eliminado
-                    {
+                    if (item.Tipo == null && item.Ruta == null)
                         item.Tipo = "Eliminado";
-                    }
                 }
 
                 return cambios;
@@ -272,6 +306,9 @@ namespace LaCasaDelSueloRadianteApp.Services
             }
         }
 
+        /// <summary>
+        /// Verifica si existe conflicto basado en la fecha (se asume conflicto si el archivo local fue modificado posteriormente).
+        /// </summary>
         private bool ExisteConflicto(CambioRemoto cambioRemoto)
         {
             var rutaLocal = Path.Combine(RutaBaseLocal, cambioRemoto.Ruta);
@@ -283,8 +320,15 @@ namespace LaCasaDelSueloRadianteApp.Services
             return false;
         }
 
+        /// <summary>
+        /// Aplica el cambio remoto escribiendo el contenido en el archivo local.
+        /// </summary>
         private void AplicarCambioRemoto(CambioRemoto cambioRemoto)
         {
+            // Validar que el nombre del archivo remoto no sea nulo o vacío.
+            if (string.IsNullOrEmpty(cambioRemoto.Ruta))
+                return;
+
             if (cambioRemoto.Tipo == "Archivo")
             {
                 var rutaLocal = Path.Combine(RutaBaseLocal, cambioRemoto.Ruta);
@@ -298,16 +342,21 @@ namespace LaCasaDelSueloRadianteApp.Services
             }
         }
 
+        /// <summary>
+        /// Registra la sincronización actual en un archivo de estado.
+        /// </summary>
         private void RegistrarSincronizacion()
         {
             var ultimaSincronizacion = DateTime.UtcNow;
             var rutaArchivoConfig = Path.Combine(FileSystem.AppDataDirectory, "sync_state.json");
             var estadoSincronizacion = new { UltimaSincronizacion = ultimaSincronizacion };
-
             var json = JsonSerializer.Serialize(estadoSincronizacion, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(rutaArchivoConfig, json);
         }
 
+        /// <summary>
+        /// Obtiene la última sincronización registrada para un archivo.
+        /// </summary>
         private DateTime ObtenerUltimaSincronizacion(string archivo)
         {
             var rutaArchivoConfig = Path.Combine(FileSystem.AppDataDirectory, "sync_state.json");
@@ -316,10 +365,8 @@ namespace LaCasaDelSueloRadianteApp.Services
 
             var json = File.ReadAllText(rutaArchivoConfig);
             var estadoSincronizacion = JsonSerializer.Deserialize<Dictionary<string, DateTime>>(json);
-
             if (estadoSincronizacion != null && estadoSincronizacion.TryGetValue(archivo, out var ultimaSincronizacion))
                 return ultimaSincronizacion;
-
             return DateTime.MinValue;
         }
 
@@ -330,8 +377,9 @@ namespace LaCasaDelSueloRadianteApp.Services
             if (!File.Exists(rutaBaseDeDatos))
                 throw new FileNotFoundException("No se encontró la base de datos para realizar el backup.", rutaBaseDeDatos);
 
-            using var stream = File.OpenRead(rutaBaseDeDatos);
-            var rutaRemota = "lacasadelsueloradianteapp/clientes_backup.db3";
+            // Abrir el archivo permitiendo su lectura incluso si está en uso (por ejemplo, por SQLite)
+            using var stream = new FileStream(rutaBaseDeDatos, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var rutaRemota = "lacasadelsueloradianteapp/clientes.db3";
             await UploadFileAsync(rutaRemota, stream);
         }
 
@@ -423,6 +471,20 @@ namespace LaCasaDelSueloRadianteApp.Services
                 throw new Exception("No se obtuvo el enlace compartido.");
 
             return permission.Link.WebUrl;
+        }
+
+        /// <summary>
+        /// En caso de conflicto (estrategia ManualMerge), guarda una copia remota con sufijo de conflicto.
+        /// </summary>
+        private async Task ResolverConflictoAsync(CambioRemoto remoteCambio, string rutaLocal)
+        {
+            string fileName = Path.GetFileName(rutaLocal);
+            string conflictFileName = $"{Path.GetFileNameWithoutExtension(fileName)}_conflict_{DateTime.UtcNow:yyyyMMddHHmmss}{Path.GetExtension(fileName)}";
+            string remoteConflictPath = $"lacasadelsueloradianteapp/{conflictFileName}";
+
+            using var stream = File.OpenRead(rutaLocal);
+            await UploadFileAsync(remoteConflictPath, stream);
+            System.Diagnostics.Debug.WriteLine($"Conflicto: se ha guardado una copia remota como {conflictFileName}");
         }
 
         private class UploadSession
