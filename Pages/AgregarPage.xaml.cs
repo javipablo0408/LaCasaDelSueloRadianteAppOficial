@@ -45,10 +45,8 @@ namespace LaCasaDelSueloRadianteApp
                 {
                     "Cámara" when MediaPicker.Default.IsCaptureSupported
                         => await MediaPicker.Default.CapturePhotoAsync(),
-
                     "Galería"
                         => await MediaPicker.Default.PickPhotoAsync(),
-
                     "Archivos"
                         => await FilePicker.Default.PickAsync(new PickOptions
                         {
@@ -69,8 +67,8 @@ namespace LaCasaDelSueloRadianteApp
         {
             try
             {
-                // Guardar imagen localmente
-                var localFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                // Usar FileSystem.AppDataDirectory para mantener la ruta centralizada
+                var localFolder = FileSystem.AppDataDirectory;
                 var localPath = Path.Combine(localFolder, $"{slug}_{DateTime.Now:yyyyMMddHHmmss}{Path.GetExtension(file.FileName)}");
 
                 await using (var localStream = File.Create(localPath))
@@ -79,12 +77,12 @@ namespace LaCasaDelSueloRadianteApp
                     await fileStream.CopyToAsync(localStream);
                 }
 
-                // Subir imagen a OneDrive
+                // Subir imagen a OneDrive (se utiliza la misma ruta remota)
                 var remotePath = $"{RemoteFolder}/{Path.GetFileName(localPath)}";
                 await using var uploadStream = File.OpenRead(localPath);
                 await _oneDrive.UploadFileAsync(remotePath, uploadStream);
 
-                return localPath; // Retornar la ruta local
+                return localPath; // Retornar la ruta local guardada
             }
             catch (Exception ex)
             {

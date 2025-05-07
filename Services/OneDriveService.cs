@@ -1,23 +1,42 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Graph.Models;
+using Microsoft.Maui.Storage;
 
 namespace LaCasaDelSueloRadianteApp.Services
 {
+    public class DeltaResponse
+    {
+        public List<OneDriveService.CambioRemoto> value { get; set; } = new();
+    }
+
     public class OneDriveService
     {
         private readonly MauiMsalAuthService _auth;
         private readonly HttpClient _http;
 
+        public static string RutaBaseLocal { get; } =
+            Path.Combine(FileSystem.AppDataDirectory, "ArchivosLocal");
+
+        public enum ConflictStrategy
+        {
+            LocalPriority,
+            CloudPriority,
+            ManualMerge
+        }
+
+        public ConflictStrategy ConflictResolutionStrategy { get; set; } = ConflictStrategy.LocalPriority;
+
         public class CambioLocal
         {
-            public string Tipo { get; set; } // "Archivo" o "BaseDeDatos"
+            public string Tipo { get; set; }
             public string RutaLocal { get; set; }
             public string RutaRemota { get; set; }
         }
@@ -34,6 +53,9 @@ namespace LaCasaDelSueloRadianteApp.Services
         {
             _auth = auth ?? throw new ArgumentNullException(nameof(auth));
             _http = new HttpClient();
+
+            if (!Directory.Exists(RutaBaseLocal))
+                Directory.CreateDirectory(RutaBaseLocal);
         }
 
         private async Task AddAuthHeaderAsync()
@@ -43,41 +65,94 @@ namespace LaCasaDelSueloRadianteApp.Services
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authResult.AccessToken);
         }
 
-        public async Task SincronizarAsync(CancellationToken ct = default)
+        public async Task SincronizarBidireccionalAsync(CancellationToken ct = default)
         {
             await AddAuthHeaderAsync();
 
-            // Detectar cambios locales
-            var cambiosLocales = DetectarCambiosLocales();
-
-            // Subir cambios locales a OneDrive
-            foreach (var cambio in cambiosLocales)
+            try
             {
-                if (cambio.Tipo == "Archivo")
+                var cambiosLocales = DetectarCambiosLocales();
+                var cambiosRemotos = await ObtenerCambiosRemotosAsync(ct);
+
+                foreach (var cambio in cambiosLocales)
                 {
-                    using var stream = File.OpenRead(cambio.RutaLocal);
-                    await UploadFileAsync(cambio.RutaRemota, stream);
+                    var nombreArchivo = Path.GetFileName(cambio.RutaLocal);
+                    var remoteCambio = cambiosRemotos.FirstOrDefault(cr => cr.Ruta != null && cr.Ruta.Equals(nombreArchivo, StringComparison.OrdinalIgnoreCase));
+
+                    if (remoteCambio != null)
+                    {
+                        var fechaLocal = File.GetLastWriteTime(cambio.RutaLocal);
+                        if (fechaLocal > remoteCambio.FechaModificacion)
+                        {
+                            if (ConflictResolutionStrategy == ConflictStrategy.LocalPriority || (!ExisteConflicto(remoteCambio)))
+                            {
+                                if (cambio.Tipo == "Archivo")
+                                {
+                                    using var stream = File.OpenRead(cambio.RutaLocal);
+                                    await UploadFileAsync(cambio.RutaRemota, stream);
+                                }
+                                else if (cambio.Tipo == "BaseDeDatos")
+                                {
+                                    await BackupBaseDeDatosAsync();
+                                }
+                            }
+                        }
+                        else if (fechaLocal < remoteCambio.FechaModificacion)
+                        {
+                            if (ConflictResolutionStrategy == ConflictStrategy.CloudPriority || (!ExisteConflicto(remoteCambio)))
+                            {
+                                AplicarCambioRemoto(remoteCambio);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (cambio.Tipo == "Archivo")
+                        {
+                            using var stream = File.OpenRead(cambio.RutaLocal);
+                            await UploadFileAsync(cambio.RutaRemota, stream);
+                        }
+                        else if (cambio.Tipo == "BaseDeDatos")
+                        {
+                            await BackupBaseDeDatosAsync();
+                        }
+                    }
                 }
-                else if (cambio.Tipo == "BaseDeDatos")
+
+                foreach (var cambioRemoto in cambiosRemotos)
                 {
-                    await BackupBaseDeDatosAsync();
+                    var rutaLocal = Path.Combine(RutaBaseLocal, cambioRemoto.Ruta);
+                    if (!File.Exists(rutaLocal))
+                    {
+                        AplicarCambioRemoto(cambioRemoto);
+                    }
                 }
+
+                var remoteFileNames = cambiosRemotos
+                    .Where(cr => cr.Ruta != null)
+                    .Select(cr => cr.Ruta)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                var localFiles = Directory.GetFiles(RutaBaseLocal);
+                foreach (var localFile in localFiles)
+                {
+                    var fileName = Path.GetFileName(localFile);
+                    if (!remoteFileNames.Contains(fileName))
+                    {
+                        var remotePath = $"lacasadelsueloradianteapp/{fileName}";
+                        using var stream = File.OpenRead(localFile);
+                        await UploadFileAsync(remotePath, stream);
+                        System.Diagnostics.Debug.WriteLine($"Archivo re-subido al detectar eliminación remota: {fileName}");
+                    }
+                }
+
+                RegistrarSincronizacion();
             }
-
-            // Detectar cambios remotos
-            var cambiosRemotos = await ObtenerCambiosRemotosAsync(ct);
-
-            // Resolver conflictos y aplicar cambios remotos
-            foreach (var cambioRemoto in cambiosRemotos)
+            catch (Exception ex)
             {
-                if (!ExisteConflicto(cambioRemoto))
-                {
-                    AplicarCambioRemoto(cambioRemoto);
-                }
+                Console.WriteLine($"Error en la sincronización: {ex.Message}");
+                throw;
             }
-
-            // Registrar estado de sincronización
-            RegistrarSincronizacion();
         }
 
         public async Task RestaurarBaseDeDatosAsync(string localPath)
@@ -105,7 +180,21 @@ namespace LaCasaDelSueloRadianteApp.Services
                 var requestUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath}:/content";
                 var response = await _http.GetAsync(requestUrl);
                 if (!response.IsSuccessStatusCode)
-                    throw new Exception($"Error al descargar la imagen: {response.ReasonPhrase}");
+                {
+                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Archivo no encontrado en OneDrive: {remotePath}");
+                        return;
+                    }
+                    else
+                    {
+                        throw new Exception($"Error al descargar la imagen: {response.ReasonPhrase}");
+                    }
+                }
+
+                var directorio = Path.GetDirectoryName(localPath);
+                if (!string.IsNullOrEmpty(directorio) && !Directory.Exists(directorio))
+                    Directory.CreateDirectory(directorio);
 
                 using var stream = await response.Content.ReadAsStreamAsync();
                 using var fileStream = File.Create(localPath);
@@ -117,8 +206,10 @@ namespace LaCasaDelSueloRadianteApp.Services
         {
             var cambios = new List<CambioLocal>();
 
-            // Detectar cambios en archivos locales
-            var archivosLocales = Directory.GetFiles("ruta/local");
+            if (!Directory.Exists(RutaBaseLocal))
+                Directory.CreateDirectory(RutaBaseLocal);
+
+            var archivosLocales = Directory.GetFiles(RutaBaseLocal);
             foreach (var archivo in archivosLocales)
             {
                 var infoArchivo = new FileInfo(archivo);
@@ -133,8 +224,7 @@ namespace LaCasaDelSueloRadianteApp.Services
                 }
             }
 
-            // Detectar cambios en la base de datos
-            var rutaBaseDeDatos = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "clientes.db3");
+            var rutaBaseDeDatos = Path.Combine(FileSystem.AppDataDirectory, "clientes.db3");
             if (File.Exists(rutaBaseDeDatos) && File.GetLastWriteTime(rutaBaseDeDatos) > ObtenerUltimaSincronizacion(rutaBaseDeDatos))
             {
                 cambios.Add(new CambioLocal
@@ -154,13 +244,37 @@ namespace LaCasaDelSueloRadianteApp.Services
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync(ct);
-            var cambios = JsonSerializer.Deserialize<List<CambioRemoto>>(json);
-            return cambios ?? new List<CambioRemoto>();
+            try
+            {
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+
+                var delta = JsonSerializer.Deserialize<DeltaResponse>(json, options);
+                var cambios = delta?.value ?? new List<CambioRemoto>();
+
+                // Detectar elementos eliminados
+                foreach (var item in cambios)
+                {
+                    if (item.Tipo == null && item.Ruta == null) // Elemento eliminado
+                    {
+                        item.Tipo = "Eliminado";
+                    }
+                }
+
+                return cambios;
+            }
+            catch (JsonException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error al deserializar el JSON: {ex.Message}");
+                return new List<CambioRemoto>();
+            }
         }
 
         private bool ExisteConflicto(CambioRemoto cambioRemoto)
         {
-            var rutaLocal = Path.Combine("ruta/local", cambioRemoto.Ruta);
+            var rutaLocal = Path.Combine(RutaBaseLocal, cambioRemoto.Ruta);
             if (File.Exists(rutaLocal))
             {
                 var fechaLocal = File.GetLastWriteTime(rutaLocal);
@@ -173,13 +287,13 @@ namespace LaCasaDelSueloRadianteApp.Services
         {
             if (cambioRemoto.Tipo == "Archivo")
             {
-                var rutaLocal = Path.Combine("ruta/local", cambioRemoto.Ruta);
+                var rutaLocal = Path.Combine(RutaBaseLocal, cambioRemoto.Ruta);
                 Directory.CreateDirectory(Path.GetDirectoryName(rutaLocal)!);
                 File.WriteAllText(rutaLocal, cambioRemoto.Contenido);
             }
             else if (cambioRemoto.Tipo == "BaseDeDatos")
             {
-                var rutaBaseDeDatos = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "clientes.db3");
+                var rutaBaseDeDatos = Path.Combine(FileSystem.AppDataDirectory, "clientes.db3");
                 File.WriteAllText(rutaBaseDeDatos, cambioRemoto.Contenido);
             }
         }
@@ -187,7 +301,7 @@ namespace LaCasaDelSueloRadianteApp.Services
         private void RegistrarSincronizacion()
         {
             var ultimaSincronizacion = DateTime.UtcNow;
-            var rutaArchivoConfig = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "sync_state.json");
+            var rutaArchivoConfig = Path.Combine(FileSystem.AppDataDirectory, "sync_state.json");
             var estadoSincronizacion = new { UltimaSincronizacion = ultimaSincronizacion };
 
             var json = JsonSerializer.Serialize(estadoSincronizacion, new JsonSerializerOptions { WriteIndented = true });
@@ -196,8 +310,7 @@ namespace LaCasaDelSueloRadianteApp.Services
 
         private DateTime ObtenerUltimaSincronizacion(string archivo)
         {
-            var rutaArchivoConfig = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "sync_state.json");
-
+            var rutaArchivoConfig = Path.Combine(FileSystem.AppDataDirectory, "sync_state.json");
             if (!File.Exists(rutaArchivoConfig))
                 return DateTime.MinValue;
 
@@ -212,7 +325,7 @@ namespace LaCasaDelSueloRadianteApp.Services
 
         public async Task BackupBaseDeDatosAsync()
         {
-            var rutaBaseDeDatos = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "clientes.db3");
+            var rutaBaseDeDatos = Path.Combine(FileSystem.AppDataDirectory, "clientes.db3");
 
             if (!File.Exists(rutaBaseDeDatos))
                 throw new FileNotFoundException("No se encontró la base de datos para realizar el backup.", rutaBaseDeDatos);
@@ -235,9 +348,7 @@ namespace LaCasaDelSueloRadianteApp.Services
 
             var response = await _http.PutAsync(requestUrl, streamContent);
             if (!response.IsSuccessStatusCode)
-            {
                 throw new Exception($"Error al subir el archivo: {response.ReasonPhrase}");
-            }
         }
 
         public async Task UploadLargeFileAsync(string remotePath, Stream content)
@@ -247,7 +358,6 @@ namespace LaCasaDelSueloRadianteApp.Services
 
             await AddAuthHeaderAsync();
 
-            // Crear una sesión de carga
             var requestUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath}:/createUploadSession";
             var sessionResponse = await _http.PostAsync(requestUrl, null);
             if (!sessionResponse.IsSuccessStatusCode)
@@ -262,8 +372,7 @@ namespace LaCasaDelSueloRadianteApp.Services
             if (session == null || string.IsNullOrEmpty(session.UploadUrl))
                 throw new Exception("No se pudo obtener la URL de la sesión de carga.");
 
-            // Subir el archivo en fragmentos
-            const int fragmentSize = 320 * 1024; // 320 KB
+            const int fragmentSize = 320 * 1024;
             var buffer = new byte[fragmentSize];
             long totalBytesRead = 0;
             int bytesRead;
