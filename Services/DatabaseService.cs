@@ -28,18 +28,19 @@ namespace LaCasaDelSueloRadianteApp.Services
 
                 try
                 {
-                    // Restaurar la base de datos desde OneDrive
+                    // Intentar restaurar la base de datos desde OneDrive
                     await _oneDrive.RestaurarBaseDeDatosAsync(_dbPath);
                     Console.WriteLine("Base de datos restaurada exitosamente.");
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error al restaurar la base de datos: {ex.Message}");
-                    throw;
+                    Console.WriteLine("Creando una nueva base de datos local...");
+                    // No se lanza la excepción para que SQLite cree la base de datos nueva.
                 }
             }
 
-            // Inicializar la conexión SQLite
+            // Inicializar la conexión SQLite (SQLite creará el archivo si no existe)
             _conn = new SQLiteAsyncConnection(_dbPath);
             await _conn.CreateTableAsync<Cliente>();
             await _conn.CreateTableAsync<Servicio>();

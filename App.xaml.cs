@@ -115,10 +115,10 @@ namespace LaCasaDelSueloRadianteApp
         {
             try
             {
-                var servicios = await db.ObtenerTodosLosServiciosAsync();
                 var oneDrive = Services.GetRequiredService<OneDriveService>();
 
-                // Comprobar imágenes asociadas a cada servicio.
+                // Comprobar imágenes asociadas a cada servicio (si es que deseas conservar esta lógica)
+                var servicios = await db.ObtenerTodosLosServiciosAsync();
                 foreach (var servicio in servicios)
                 {
                     await DescargarImagenSiNoExisteAsync(servicio.FotoPhUrl, "ph", oneDrive);
@@ -131,8 +131,19 @@ namespace LaCasaDelSueloRadianteApp
                 var dbPath = Path.Combine(FileSystem.AppDataDirectory, "clientes.db3");
                 if (!File.Exists(dbPath))
                 {
-                    await oneDrive.RestaurarBaseDeDatosAsync(dbPath);
-                    System.Diagnostics.Debug.WriteLine("Base de datos restaurada desde OneDrive.");
+                    try
+                    {
+                        // Intentar restaurar la base de datos desde OneDrive
+                        await oneDrive.RestaurarBaseDeDatosAsync(dbPath);
+                        System.Diagnostics.Debug.WriteLine("Base de datos restaurada desde OneDrive.");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine("No se encontró respaldo en OneDrive o error al restaurar la base de datos: " + ex.Message);
+                        // En caso de error (respaldo inexistente o error en la descarga), se crea una nueva base de datos.
+                        System.Diagnostics.Debug.WriteLine("Creando nueva base de datos local...");
+                        await db.InitAsync();
+                    }
                 }
             }
             catch (Exception ex)
