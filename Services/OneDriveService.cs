@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -23,6 +24,12 @@ namespace LaCasaDelSueloRadianteApp.Services
     {
         private readonly MauiMsalAuthService _auth;
         private readonly HttpClient _http;
+
+        // Ruta local de imágenes (ajústala si es necesario)
+        private readonly string localImagesPath = @"C:\Users\Javier\AppData\Local\Packages\com.companyname.lacasadelsueloradianteapp_9zz4h110yvjzm\LocalState";
+
+        // Campo para el temporizador (para evitar que sea recolectado por el GC)
+        private Timer? _syncTimerImages;
 
         public static string RutaBaseLocal { get; } =
             Path.Combine(FileSystem.AppDataDirectory, "ArchivosLocal");
@@ -78,7 +85,7 @@ namespace LaCasaDelSueloRadianteApp.Services
         }
 
         /// <summary>
-        /// Compara archivos locales y remotos usando fecha y hash, maneja conflictos de acuerdo a la estrategia.
+        /// Realiza la sincronización bidireccional (archivos y base de datos).
         /// </summary>
         public async Task SincronizarBidireccionalAsync(CancellationToken ct = default)
         {
@@ -159,7 +166,6 @@ namespace LaCasaDelSueloRadianteApp.Services
                 // Procesa registros remotos que no existen localmente
                 foreach (var cambioRemoto in cambiosRemotos)
                 {
-                    // Verificar que el nombre del archivo remoto no sea nulo o vacío
                     if (string.IsNullOrEmpty(cambioRemoto.Ruta))
                         continue;
 
@@ -182,7 +188,7 @@ namespace LaCasaDelSueloRadianteApp.Services
                         var remotePath = $"lacasadelsueloradianteapp/{fileName}";
                         using var stream = File.OpenRead(localFile);
                         await UploadFileAsync(remotePath, stream);
-                        System.Diagnostics.Debug.WriteLine($"Archivo re-subido al detectar eliminación remota: {fileName}");
+                        Debug.WriteLine($"Archivo re-subido al detectar eliminación remota: {fileName}");
                     }
                 }
 
@@ -223,7 +229,7 @@ namespace LaCasaDelSueloRadianteApp.Services
                 {
                     if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Archivo no encontrado en OneDrive: {remotePath}");
+                        Debug.WriteLine($"Archivo no encontrado en OneDrive: {remotePath}");
                         return;
                     }
                     else
@@ -290,7 +296,6 @@ namespace LaCasaDelSueloRadianteApp.Services
                 var delta = JsonSerializer.Deserialize<DeltaResponse>(json, options);
                 var cambios = delta?.value ?? new List<CambioRemoto>();
 
-                // Marcar elementos eliminados
                 foreach (var item in cambios)
                 {
                     if (item.Tipo == null && item.Ruta == null)
@@ -301,14 +306,11 @@ namespace LaCasaDelSueloRadianteApp.Services
             }
             catch (JsonException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error al deserializar el JSON: {ex.Message}");
+                Debug.WriteLine($"Error al deserializar el JSON: {ex.Message}");
                 return new List<CambioRemoto>();
             }
         }
 
-        /// <summary>
-        /// Verifica si existe conflicto basado en la fecha (se asume conflicto si el archivo local fue modificado posteriormente).
-        /// </summary>
         private bool ExisteConflicto(CambioRemoto cambioRemoto)
         {
             var rutaLocal = Path.Combine(RutaBaseLocal, cambioRemoto.Ruta);
@@ -320,12 +322,8 @@ namespace LaCasaDelSueloRadianteApp.Services
             return false;
         }
 
-        /// <summary>
-        /// Aplica el cambio remoto escribiendo el contenido en el archivo local.
-        /// </summary>
         private void AplicarCambioRemoto(CambioRemoto cambioRemoto)
         {
-            // Validar que el nombre del archivo remoto no sea nulo o vacío.
             if (string.IsNullOrEmpty(cambioRemoto.Ruta))
                 return;
 
@@ -342,9 +340,6 @@ namespace LaCasaDelSueloRadianteApp.Services
             }
         }
 
-        /// <summary>
-        /// Registra la sincronización actual en un archivo de estado.
-        /// </summary>
         private void RegistrarSincronizacion()
         {
             var ultimaSincronizacion = DateTime.UtcNow;
@@ -354,9 +349,6 @@ namespace LaCasaDelSueloRadianteApp.Services
             File.WriteAllText(rutaArchivoConfig, json);
         }
 
-        /// <summary>
-        /// Obtiene la última sincronización registrada para un archivo.
-        /// </summary>
         private DateTime ObtenerUltimaSincronizacion(string archivo)
         {
             var rutaArchivoConfig = Path.Combine(FileSystem.AppDataDirectory, "sync_state.json");
@@ -377,7 +369,6 @@ namespace LaCasaDelSueloRadianteApp.Services
             if (!File.Exists(rutaBaseDeDatos))
                 throw new FileNotFoundException("No se encontró la base de datos para realizar el backup.", rutaBaseDeDatos);
 
-            // Abrir el archivo permitiendo su lectura incluso si está en uso (por ejemplo, por SQLite)
             using var stream = new FileStream(rutaBaseDeDatos, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             var rutaRemota = "lacasadelsueloradianteapp/clientes.db3";
             await UploadFileAsync(rutaRemota, stream);
@@ -473,9 +464,6 @@ namespace LaCasaDelSueloRadianteApp.Services
             return permission.Link.WebUrl;
         }
 
-        /// <summary>
-        /// En caso de conflicto (estrategia ManualMerge), guarda una copia remota con sufijo de conflicto.
-        /// </summary>
         private async Task ResolverConflictoAsync(CambioRemoto remoteCambio, string rutaLocal)
         {
             string fileName = Path.GetFileName(rutaLocal);
@@ -484,7 +472,7 @@ namespace LaCasaDelSueloRadianteApp.Services
 
             using var stream = File.OpenRead(rutaLocal);
             await UploadFileAsync(remoteConflictPath, stream);
-            System.Diagnostics.Debug.WriteLine($"Conflicto: se ha guardado una copia remota como {conflictFileName}");
+            Debug.WriteLine($"Conflicto: se ha guardado una copia remota como {conflictFileName}");
         }
 
         private class UploadSession
@@ -502,5 +490,190 @@ namespace LaCasaDelSueloRadianteApp.Services
         {
             public string? WebUrl { get; set; }
         }
+
+        // ===================================================================
+        // Métodos para la sincronización bilateral automática de imágenes
+        // ===================================================================
+
+        /// <summary>
+        /// Sincroniza imágenes de manera bilateral entre el dispositivo local y OneDrive.
+        /// Compara archivos por nombre y fecha de modificación y utiliza PUT y /content de la Graph API.
+        /// </summary>
+        public async Task SincronizarImagenesAsync(CancellationToken ct = default)
+        {
+            await AddAuthHeaderAsync();
+            Debug.WriteLine("Inicio de sincronización de imágenes.");
+
+            // Verificar que el directorio local de imágenes exista
+            if (!Directory.Exists(localImagesPath))
+            {
+                Debug.WriteLine($"El directorio local '{localImagesPath}' no existe. Creándolo.");
+                Directory.CreateDirectory(localImagesPath);
+            }
+
+            // Definir extensiones de imagen permitidas
+            var imageExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg" };
+
+            // 1. Sincronizar archivos locales: subir archivos que no existan o estén desactualizados en OneDrive.
+            var localFiles = Directory.GetFiles(localImagesPath)
+                                .Where(file => imageExtensions.Contains(Path.GetExtension(file)));
+            foreach (var localFile in localFiles)
+            {
+                var fileName = Path.GetFileName(localFile);
+                var remotePath = $"lacasadelsueloradianteapp/{fileName}";
+                DateTime localModified = File.GetLastWriteTime(localFile);
+
+                try
+                {
+                    // Obtener metadatos remotos
+                    var metadataUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath}";
+                    var metadataResponse = await _http.GetAsync(metadataUrl, ct);
+                    DateTimeOffset remoteModified = DateTimeOffset.MinValue;
+                    bool remoteExists = false;
+
+                    if (metadataResponse.IsSuccessStatusCode)
+                    {
+                        string metadataJson = await metadataResponse.Content.ReadAsStringAsync(ct);
+                        var remoteItem = JsonSerializer.Deserialize<OneDriveItem>(metadataJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (remoteItem?.lastModifiedDateTime != null)
+                        {
+                            remoteModified = remoteItem.lastModifiedDateTime.Value;
+                            remoteExists = true;
+                        }
+                    }
+                    else if (metadataResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        remoteExists = false;
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Error al obtener metadatos del archivo remoto '{remotePath}': {metadataResponse.ReasonPhrase}");
+                        continue;
+                    }
+
+                    // Comparar fechas y proceder con la sincronización
+                    if (!remoteExists || localModified > remoteModified.LocalDateTime)
+                    {
+                        Debug.WriteLine($"Subiendo '{fileName}' a OneDrive. (Local: {localModified}, Remoto: {(remoteExists ? remoteModified.LocalDateTime.ToString() : "N/A")})");
+                        using var stream = File.OpenRead(localFile);
+                        await UploadFileAsync(remotePath, stream);
+                    }
+                    else if (remoteExists && localModified < remoteModified.LocalDateTime)
+                    {
+                        Debug.WriteLine($"Descargando '{fileName}' desde OneDrive. (Local: {localModified}, Remoto: {remoteModified.LocalDateTime})");
+                        var downloadUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath}:/content";
+                        var downloadResponse = await _http.GetAsync(downloadUrl, ct);
+                        if (downloadResponse.IsSuccessStatusCode)
+                        {
+                            using var stream = await downloadResponse.Content.ReadAsStreamAsync(ct);
+                            using var fileStream = File.Create(localFile);
+                            await stream.CopyToAsync(fileStream, ct);
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"Error al descargar '{fileName}': {downloadResponse.ReasonPhrase}");
+                        }
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Sin cambios para '{fileName}'.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error sincronizando '{fileName}': {ex.Message}");
+                }
+            }
+
+            // 2. Sincronizar archivos remotos: descargar archivos que no existan localmente o que estén actualizados.
+            try
+            {
+                var listUrl = "https://graph.microsoft.com/v1.0/me/drive/root:/lacasadelsueloradianteapp:/children";
+                var listResponse = await _http.GetAsync(listUrl, ct);
+                if (listResponse.IsSuccessStatusCode)
+                {
+                    string listJson = await listResponse.Content.ReadAsStringAsync(ct);
+                    var remoteItemsResponse = JsonSerializer.Deserialize<OneDriveItemsResponse>(listJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                    if (remoteItemsResponse != null && remoteItemsResponse.value.Count > 0)
+                    {
+                        foreach (var remoteItem in remoteItemsResponse.value)
+                        {
+                            if (remoteItem?.name == null || !imageExtensions.Contains(Path.GetExtension(remoteItem.name)))
+                                continue;
+
+                            var localFilePath = Path.Combine(localImagesPath, remoteItem.name);
+                            DateTime localModified = File.Exists(localFilePath) ? File.GetLastWriteTime(localFilePath) : DateTime.MinValue;
+                            DateTimeOffset remoteModified = remoteItem.lastModifiedDateTime ?? DateTimeOffset.MinValue;
+
+                            if (!File.Exists(localFilePath) || remoteModified.LocalDateTime > localModified)
+                            {
+                                Debug.WriteLine($"Descargando '{remoteItem.name}' desde OneDrive (Remoto: {remoteModified.LocalDateTime}, Local: {localModified}).");
+                                var downloadUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePathFor(remoteItem.name)}:/content";
+                                var downloadResponse = await _http.GetAsync(downloadUrl, ct);
+                                if (downloadResponse.IsSuccessStatusCode)
+                                {
+                                    using var stream = await downloadResponse.Content.ReadAsStreamAsync(ct);
+                                    using var fileStream = File.Create(localFilePath);
+                                    await stream.CopyToAsync(fileStream, ct);
+                                }
+                                else
+                                {
+                                    Debug.WriteLine($"Error al descargar '{remoteItem.name}': {downloadResponse.ReasonPhrase}");
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"Error al listar archivos remotos: {listResponse.ReasonPhrase}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error procesando archivos remotos: {ex.Message}");
+            }
+
+            Debug.WriteLine("Sincronización de imágenes finalizada.");
+        }
+
+        // Función auxiliar para formatear la ruta remota de un archivo de imagen
+        private string remotePathFor(string fileName) => $"lacasadelsueloradianteapp/{fileName}";
+
+        /// <summary>
+        /// Inicia un temporizador que ejecuta la sincronización de imágenes cada 1 minuto.
+        /// </summary>
+        public void IniciarSincronizacionAutomaticaImagenes()
+        {
+            _syncTimerImages = new Timer(async state =>
+            {
+                try
+                {
+                    await SincronizarImagenesAsync();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error en la sincronización automática de imágenes: {ex.Message}");
+                }
+            }, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
+
+            Debug.WriteLine("Temporizador de sincronización automática de imágenes iniciado.");
+        }
+    }
+
+    // *******************************************************
+    // Definiciones de OneDriveItem y OneDriveItemsResponse
+    // *******************************************************
+
+    public class OneDriveItem
+    {
+        public string? name { get; set; }
+        public DateTimeOffset? lastModifiedDateTime { get; set; }
+    }
+
+    public class OneDriveItemsResponse
+    {
+        public List<OneDriveItem> value { get; set; } = new();
     }
 }

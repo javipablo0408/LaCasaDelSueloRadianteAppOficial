@@ -45,6 +45,11 @@ public static class MauiProgram
 
         var app = builder.Build();
         App.Services = app.Services; // Acceso global opcional
+
+        // Llamar a la sincronización automática de imágenes
+        var oneDriveService = app.Services.GetRequiredService<OneDriveService>();
+        oneDriveService.IniciarSincronizacionAutomaticaImagenes();
+
         return app;
     }
 }
