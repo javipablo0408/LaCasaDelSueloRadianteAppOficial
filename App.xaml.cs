@@ -14,12 +14,12 @@ namespace LaCasaDelSueloRadianteApp
         public static IServiceProvider Services { get; set; } = default!;
 
         private readonly System.Timers.Timer _syncTimer;
+        private bool _isSyncing = false;
 
         public App()
         {
             InitializeComponent();
 
-            // Página de carga inicial
             MainPage = new ContentPage
             {
                 Content = new ActivityIndicator
@@ -30,7 +30,6 @@ namespace LaCasaDelSueloRadianteApp
                 }
             };
 
-            // Configurar el temporizador para sincronización periódica (cada 15 minutos)
             _syncTimer = new System.Timers.Timer(TimeSpan.FromMinutes(1).TotalMilliseconds)
             {
                 AutoReset = true,
@@ -38,38 +37,49 @@ namespace LaCasaDelSueloRadianteApp
             };
             _syncTimer.Elapsed += async (s, e) => await VerificarYSincronizarAsync();
 
-            _ = InitializeAsync();
+            // Ejecutamos la inicialización fuera del constructor para evitar bucles tras el login interactivo
+            MainThread.BeginInvokeOnMainThread(async () => await InitializeAsync());
         }
 
         private async Task InitializeAsync()
         {
             try
             {
-                var db = Services.GetRequiredService<DatabaseService>();
+                var db = Services.GetService<DatabaseService>();
+                if (db == null)
+                    throw new InvalidOperationException("No se pudo resolver DatabaseService.");
+
                 await db.InitAsync();
-                System.Diagnostics.Debug.WriteLine("Base de datos inicializada correctamente.");
-
-                // Comprueba imágenes y la base de datos local (se restaura si es necesario)
                 await ComprobarYDescargarImagenesYBaseDeDatosAsync(db);
-                System.Diagnostics.Debug.WriteLine("Verificación de imágenes y base de datos completada.");
 
-                var auth = Services.GetRequiredService<MauiMsalAuthService>();
+                var auth = Services.GetService<MauiMsalAuthService>();
+                if (auth == null)
+                    throw new InvalidOperationException("No se pudo resolver MauiMsalAuthService.");
+
                 var token = await auth.AcquireTokenSilentAsync();
-                System.Diagnostics.Debug.WriteLine("Autenticación completada.");
+                System.Diagnostics.Debug.WriteLine("[MSAL] Token silencioso: " + (token != null));
 
-                // Establecer la MainPage según la autenticación
+                if (token == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("[MSAL] Intentando login interactivo...");
+                    token = await auth.AcquireTokenInteractiveAsync();
+                    System.Diagnostics.Debug.WriteLine("[MSAL] Login interactivo completado: " + (token != null));
+                }
+
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
+                    System.Diagnostics.Debug.WriteLine("[MSAL] Estableciendo MainPage: " + (token != null ? "AppShell" : "LoginPage"));
                     MainPage = token != null
                         ? Services.GetRequiredService<AppShell>()
                         : new NavigationPage(Services.GetRequiredService<LoginPage>());
                 });
 
-                // Inicia la sincronización periódica
                 _syncTimer.Start();
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[ERROR] InitializeAsync: {ex}");
+
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     MainPage = new ContentPage
@@ -91,34 +101,37 @@ namespace LaCasaDelSueloRadianteApp
 
         private async Task VerificarYSincronizarAsync()
         {
+            if (_isSyncing) return;
+            _isSyncing = true;
             try
             {
-                var db = Services.GetRequiredService<DatabaseService>();
-                await ComprobarYDescargarImagenesYBaseDeDatosAsync(db);
+                var db = Services.GetService<DatabaseService>();
+                var oneDrive = Services.GetService<OneDriveService>();
+                if (db == null || oneDrive == null)
+                    throw new InvalidOperationException("No se pudo resolver DatabaseService o OneDriveService.");
 
-                var oneDrive = Services.GetRequiredService<OneDriveService>();
-                // Ejecutar la sincronización bidireccional de forma periódica.
-                await oneDrive.SincronizarBidireccionalAsync();
-                System.Diagnostics.Debug.WriteLine("Sincronización periódica completada.");
+                await ComprobarYDescargarImagenesYBaseDeDatosAsync(db);
+                await oneDrive.SincronizarRegistrosAsync(db);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error durante la sincronización periódica: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[ERROR] Sincronización periódica: {ex.Message}");
+            }
+            finally
+            {
+                _isSyncing = false;
             }
         }
 
-        /// <summary>
-        /// Comprueba y descarga imágenes y la base de datos local.
-        /// Si el archivo de la base de datos no está, lo restaura desde OneDrive.
-        /// </summary>
         private async Task ComprobarYDescargarImagenesYBaseDeDatosAsync(DatabaseService db)
         {
             try
             {
-                var servicios = await db.ObtenerTodosLosServiciosAsync();
-                var oneDrive = Services.GetRequiredService<OneDriveService>();
+                var servicios = await db.ObtenerServiciosAsync(0);
+                var oneDrive = Services.GetService<OneDriveService>();
+                if (oneDrive == null)
+                    throw new InvalidOperationException("No se pudo resolver OneDriveService.");
 
-                // Comprobar imágenes asociadas a cada servicio.
                 foreach (var servicio in servicios)
                 {
                     await DescargarImagenSiNoExisteAsync(servicio.FotoPhUrl, "ph", oneDrive);
@@ -127,17 +140,15 @@ namespace LaCasaDelSueloRadianteApp
                     await DescargarImagenSiNoExisteAsync(servicio.FotoTurbidezUrl, "turbidez", oneDrive);
                 }
 
-                // Verificar que la base de datos exista localmente.
                 var dbPath = Path.Combine(FileSystem.AppDataDirectory, "clientes.db3");
                 if (!File.Exists(dbPath))
                 {
                     await oneDrive.RestaurarBaseDeDatosAsync(dbPath);
-                    System.Diagnostics.Debug.WriteLine("Base de datos restaurada desde OneDrive.");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error al comprobar imágenes y base de datos: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[ERROR] Comprobar imágenes y DB: {ex.Message}");
             }
         }
 
@@ -150,12 +161,21 @@ namespace LaCasaDelSueloRadianteApp
             {
                 var remotePath = $"lacasadelsueloradianteapp/{Path.GetFileName(localPath)}";
                 await oneDrive.DescargarImagenSiNoExisteAsync(localPath, remotePath);
-                System.Diagnostics.Debug.WriteLine($"Imagen {tipo} descargada correctamente: {localPath}");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error al descargar la imagen {tipo}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[ERROR] Descargar imagen {tipo}: {ex.Message}");
             }
+        }
+
+        protected override void OnSleep()
+        {
+            _syncTimer?.Stop();
+        }
+
+        protected override void OnResume()
+        {
+            _syncTimer?.Start();
         }
 
         public void Dispose()

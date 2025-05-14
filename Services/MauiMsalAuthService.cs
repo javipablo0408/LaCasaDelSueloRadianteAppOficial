@@ -44,7 +44,7 @@ namespace LaCasaDelSueloRadianteApp.Services
             }
             catch (MsalUiRequiredException)
             {
-                return null;    // se requiere interacción
+                return null; // Se requiere interacción
             }
         }
 
@@ -53,9 +53,17 @@ namespace LaCasaDelSueloRadianteApp.Services
          *-------------------------------------------------------------*/
         public async Task<AuthenticationResult> AcquireTokenInteractiveAsync()
         {
+#if ANDROID
+            var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
+            return await _pca
+                .AcquireTokenInteractive(_scopes)
+                .WithParentActivityOrWindow(activity) // Especifica la actividad actual
+                .ExecuteAsync();
+#else
             return await _pca
                 .AcquireTokenInteractive(_scopes)
                 .ExecuteAsync();
+#endif
         }
 
         /*--------------------------------------------------------------

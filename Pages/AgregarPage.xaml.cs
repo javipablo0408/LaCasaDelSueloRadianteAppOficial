@@ -16,6 +16,7 @@ namespace LaCasaDelSueloRadianteApp
         /* --------- rutas locales y remotas -------- */
         private string? _phLocalPath, _condLocalPath, _concLocalPath, _turbLocalPath;
         private const string RemoteFolder = "lacasadelsueloradianteapp";
+        private bool _dbInitialized = false;
 
         public AgregarPage(DatabaseService db, OneDriveService oneDrive)
         {
@@ -24,10 +25,19 @@ namespace LaCasaDelSueloRadianteApp
             _db = db ?? throw new ArgumentNullException(nameof(db));
             _oneDrive = oneDrive ?? throw new ArgumentNullException(nameof(oneDrive));
 
-            /* llenar pickers */
             TipoServicioPicker.ItemsSource = new[] { "Mantenimiento", "Puesta en marcha" };
             TipoInstalacionPicker.ItemsSource = new[] { "Suelo radiante", "Radiadores" };
             FuenteCalorPicker.ItemsSource = new[] { "Caldera gas", "Biomasa", "Bomba calor" };
+        }
+
+        protected override async void OnAppearing()
+        {
+            base.OnAppearing();
+            if (!_dbInitialized)
+            {
+                await _db.InitAsync();
+                _dbInitialized = true;
+            }
         }
 
         /* =======================================================
@@ -67,7 +77,6 @@ namespace LaCasaDelSueloRadianteApp
         {
             try
             {
-                // Usar FileSystem.AppDataDirectory para mantener la ruta centralizada
                 var localFolder = FileSystem.AppDataDirectory;
                 var localPath = Path.Combine(localFolder, $"{slug}_{DateTime.Now:yyyyMMddHHmmss}{Path.GetExtension(file.FileName)}");
 
@@ -77,12 +86,11 @@ namespace LaCasaDelSueloRadianteApp
                     await fileStream.CopyToAsync(localStream);
                 }
 
-                // Subir imagen a OneDrive (se utiliza la misma ruta remota)
                 var remotePath = $"{RemoteFolder}/{Path.GetFileName(localPath)}";
                 await using var uploadStream = File.OpenRead(localPath);
                 await _oneDrive.UploadFileAsync(remotePath, uploadStream);
 
-                return localPath; // Retornar la ruta local guardada
+                return localPath;
             }
             catch (Exception ex)
             {
@@ -121,6 +129,11 @@ namespace LaCasaDelSueloRadianteApp
          * =======================================================*/
         private async void OnGuardarClicked(object sender, EventArgs e)
         {
+            if (NombreEntry == null)
+            {
+                await DisplayAlert("Error", "El control NombreEntry no está inicializado.", "OK");
+                return;
+            }
             if (string.IsNullOrWhiteSpace(NombreEntry.Text))
             {
                 await DisplayAlert("Error", "El nombre del cliente es obligatorio", "OK");
@@ -129,7 +142,6 @@ namespace LaCasaDelSueloRadianteApp
 
             try
             {
-                /* 1) Cliente */
                 var cliente = new Cliente
                 {
                     NombreCliente = NombreEntry.Text!.Trim(),
@@ -139,24 +151,41 @@ namespace LaCasaDelSueloRadianteApp
                 };
                 await _db.GuardarClienteAsync(cliente);
 
-                /* 2) Servicio */
+                // SQLiteAsyncConnection no actualiza el Id automáticamente en el objeto, así que recupéralo si es necesario
+                if (cliente.Id == 0)
+                {
+                    var clientes = await _db.ObtenerClientesAsync();
+                    var clienteGuardado = clientes.FindLast(c => c.NombreCliente == cliente.NombreCliente && c.Email == cliente.Email);
+                    if (clienteGuardado != null)
+                        cliente.Id = clienteGuardado.Id;
+                }
+
+                if (cliente.Id == 0)
+                {
+                    await DisplayAlert("Error", "No se pudo guardar el cliente correctamente.", "OK");
+                    return;
+                }
+
                 var servicio = new Servicio
                 {
                     ClienteId = cliente.Id,
                     Fecha = DateTime.Now,
-                    TipoServicio = TipoServicioPicker.SelectedItem?.ToString(),
-                    TipoInstalacion = TipoInstalacionPicker.SelectedItem?.ToString(),
-                    FuenteCalor = FuenteCalorPicker.SelectedItem?.ToString(),
-                    ValorPh = double.TryParse(PhEntry.Text, out var ph) ? ph : null,
-                    ValorConductividad = double.TryParse(ConductividadEntry.Text, out var c) ? c : null,
-                    ValorConcentracion = double.TryParse(ConcentracionInhibidorEntry.Text, out var ci) ? ci : null,
-                    ValorTurbidez = double.TryParse(TurbidezEntry.Text, out var t) ? t : null,
+                    TipoServicio = TipoServicioPicker?.SelectedItem?.ToString(),
+                    TipoInstalacion = TipoInstalacionPicker?.SelectedItem?.ToString(),
+                    FuenteCalor = FuenteCalorPicker?.SelectedItem?.ToString(),
+                    ValorPh = double.TryParse(PhEntry?.Text, out var ph) ? ph : null,
+                    ValorConductividad = double.TryParse(ConductividadEntry?.Text, out var c) ? c : null,
+                    ValorConcentracion = double.TryParse(ConcentracionInhibidorEntry?.Text, out var ci) ? ci : null,
+                    ValorTurbidez = double.TryParse(TurbidezEntry?.Text, out var t) ? t : null,
                     FotoPhUrl = _phLocalPath,
                     FotoConductividadUrl = _condLocalPath,
                     FotoConcentracionUrl = _concLocalPath,
                     FotoTurbidezUrl = _turbLocalPath
                 };
                 await _db.GuardarServicioAsync(servicio);
+
+                await _db.CerrarConexionAsync();
+                await _oneDrive.SincronizarTodoAsync();
 
                 await DisplayAlert("Éxito", "Datos guardados correctamente", "OK");
                 await Navigation.PopAsync();

@@ -1,8 +1,12 @@
-﻿using SQLite;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Maui.Storage;
+using Microsoft.Extensions.Logging;
+using SQLite;
 
 namespace LaCasaDelSueloRadianteApp.Services
 {
@@ -10,163 +14,385 @@ namespace LaCasaDelSueloRadianteApp.Services
     {
         private readonly string _dbPath;
         private readonly OneDriveService _oneDrive;
+        private readonly ILogger<DatabaseService> _logger;
         private SQLiteAsyncConnection _conn;
+        private readonly string _tempDbName = "clientes_temp.db3";
+        private readonly SemaphoreSlim _dbSemaphore = new(1, 1);
 
-        public DatabaseService(string dbPath, OneDriveService oneDrive)
+        public DatabaseService(OneDriveService oneDrive, ILogger<DatabaseService> logger)
         {
-            _dbPath = dbPath ?? throw new ArgumentNullException(nameof(dbPath));
+            AppPaths.EnsureDirectoriesExist();
+            _dbPath = AppPaths.DatabasePath;
             _oneDrive = oneDrive ?? throw new ArgumentNullException(nameof(oneDrive));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        /* ----------- inicialización diferida ----------- */
-        public async Task InitAsync()
+        public async Task InitAsync(CancellationToken ct = default)
         {
-            // Verificar si la base de datos local existe
-            if (!File.Exists(_dbPath))
+            Directory.CreateDirectory(Path.GetDirectoryName(_dbPath)!);
+            if (File.Exists(_dbPath))
             {
-                Console.WriteLine("Base de datos no encontrada. Intentando restaurar desde OneDrive...");
-
+                File.SetAttributes(_dbPath, FileAttributes.Normal);
                 try
                 {
-                    // Restaurar la base de datos desde OneDrive
+                    var testConn = new SQLiteAsyncConnection(_dbPath);
+                    await testConn.ExecuteScalarAsync<int>("PRAGMA user_version");
+                }
+                catch (SQLiteException)
+                {
+                    _logger.LogWarning("El archivo de base de datos es inválido o está corrupto. Se eliminará para crear uno nuevo.");
+                    File.Delete(_dbPath);
+                }
+            }
+            else
+            {
+                _logger.LogInformation("Base de datos local no encontrada. Buscando en OneDrive...");
+                try
+                {
                     await _oneDrive.RestaurarBaseDeDatosAsync(_dbPath);
-                    Console.WriteLine("Base de datos restaurada exitosamente.");
+                    File.SetAttributes(_dbPath, FileAttributes.Normal);
+                    _logger.LogInformation("Base de datos restaurada desde OneDrive exitosamente.");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error al restaurar la base de datos: {ex.Message}");
-                    throw;
+                    _logger.LogWarning(ex, "No se encontró base de datos en OneDrive o error al restaurar. Se creará una base de datos nueva.");
                 }
             }
 
-            // Inicializar la conexión SQLite
-            _conn = new SQLiteAsyncConnection(_dbPath);
-            await _conn.CreateTableAsync<Cliente>();
-            await _conn.CreateTableAsync<Servicio>();
+            await EnsureConnectionAsync(ct);
         }
 
-        /* ----------- backup a OneDrive (copia temporal) ----------- */
-        private async Task BackupAsync()
+        private async Task EnsureConnectionAsync(CancellationToken ct = default)
         {
-            try
+            if (_conn == null)
             {
-                var tmp = Path.Combine(Path.GetTempPath(), "clientes.db3");
-                File.Copy(_dbPath, tmp, true);
-
-                await using var fs = File.OpenRead(tmp);
-                var remote = "lacasadelsueloradianteapp/clientes.db3";
-
-                if (fs.Length <= 4 * 1024 * 1024)
-                    await _oneDrive.UploadFileAsync(remote, fs);
-                else
-                    await _oneDrive.UploadLargeFileAsync(remote, fs);
-
-                File.Delete(tmp);
-            }
-            catch
-            {
-                /* Ignorar errores de backup */
+                _conn = new SQLiteAsyncConnection(_dbPath);
+                await _conn.CreateTableAsync<Cliente>();
+                await _conn.CreateTableAsync<Servicio>();
             }
         }
 
-        /* ----------- manejo de imágenes ----------- */
-        public async Task<string> GuardarImagenAsync(string localPath, string remoteFolder)
+        public async Task CerrarConexionAsync()
         {
-            try
+            if (_conn != null)
             {
-                // Subir la imagen a OneDrive
-                var remotePath = $"{remoteFolder}/{Path.GetFileName(localPath)}";
-                await using var stream = File.OpenRead(localPath);
-                await _oneDrive.UploadFileAsync(remotePath, stream);
-
-                return remotePath; // Retornar la ruta remota en OneDrive
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error al guardar la imagen: {ex.Message}");
-                throw;
+                await _conn.CloseAsync();
+                _conn = null;
             }
         }
 
-        public async Task DescargarImagenSiNoExisteAsync(string localPath, string remotePath)
+        // CRUD protegido solo para la operación crítica
+        public async Task<int> GuardarClienteAsync(Cliente c, CancellationToken ct = default)
         {
+            if (c == null)
+                throw new ArgumentNullException(nameof(c), "El cliente no puede ser null.");
+
+            int id;
+            await _dbSemaphore.WaitAsync(ct);
             try
             {
-                if (!File.Exists(localPath))
+                await EnsureConnectionAsync(ct);
+                id = await _conn.InsertAsync(c);
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
+            return id;
+        }
+
+        public async Task<int> GuardarServicioAsync(Servicio s, CancellationToken ct = default)
+        {
+            if (s == null)
+                throw new ArgumentNullException(nameof(s), "El servicio no puede ser null.");
+
+            int id;
+            await _dbSemaphore.WaitAsync(ct);
+            try
+            {
+                await EnsureConnectionAsync(ct);
+                id = await _conn.InsertAsync(s);
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
+            return id;
+        }
+
+        public async Task<List<Cliente>> ObtenerClientesAsync(CancellationToken ct = default)
+        {
+            await _dbSemaphore.WaitAsync(ct);
+            try
+            {
+                await EnsureConnectionAsync(ct);
+                return await _conn.Table<Cliente>().ToListAsync();
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
+        }
+
+        public async Task<List<Servicio>> ObtenerServiciosAsync(int clienteId, CancellationToken ct = default)
+        {
+            await _dbSemaphore.WaitAsync(ct);
+            try
+            {
+                await EnsureConnectionAsync(ct);
+                return await _conn.Table<Servicio>()
+                                  .Where(s => s.ClienteId == clienteId)
+                                  .ToListAsync();
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
+        }
+
+        public async Task<int> ActualizarClienteAsync(Cliente c, CancellationToken ct = default)
+        {
+            if (c == null)
+                throw new ArgumentNullException(nameof(c), "El cliente no puede ser null.");
+
+            int rowsAffected;
+            await _dbSemaphore.WaitAsync(ct);
+            try
+            {
+                await EnsureConnectionAsync(ct);
+                rowsAffected = await _conn.UpdateAsync(c);
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
+            return rowsAffected;
+        }
+
+        public async Task<int> ActualizarServicioAsync(Servicio s, CancellationToken ct = default)
+        {
+            if (s == null)
+                throw new ArgumentNullException(nameof(s), "El servicio no puede ser null.");
+
+            int rowsAffected;
+            await _dbSemaphore.WaitAsync(ct);
+            try
+            {
+                await EnsureConnectionAsync(ct);
+                rowsAffected = await _conn.UpdateAsync(s);
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
+            return rowsAffected;
+        }
+
+        public async Task<int> EliminarClienteAsync(Cliente c, CancellationToken ct = default)
+        {
+            if (c == null)
+                throw new ArgumentNullException(nameof(c), "El cliente no puede ser null.");
+
+            int rowsAffected;
+            await _dbSemaphore.WaitAsync(ct);
+            try
+            {
+                await EnsureConnectionAsync(ct);
+                rowsAffected = await _conn.DeleteAsync(c);
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
+            return rowsAffected;
+        }
+
+        public async Task<int> EliminarServicioAsync(Servicio s, CancellationToken ct = default)
+        {
+            if (s == null)
+                throw new ArgumentNullException(nameof(s), "El servicio no puede ser null.");
+
+            int rowsAffected;
+            await _dbSemaphore.WaitAsync(ct);
+            try
+            {
+                await EnsureConnectionAsync(ct);
+                rowsAffected = await _conn.DeleteAsync(s);
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
+            return rowsAffected;
+        }
+
+        // --- Métodos para sincronización a nivel de registros ---
+
+        public async Task<List<Cliente>> ObtenerClientesNoSincronizadosAsync(CancellationToken ct = default)
+        {
+            await _dbSemaphore.WaitAsync(ct);
+            try
+            {
+                await EnsureConnectionAsync(ct);
+                return await _conn.Table<Cliente>().Where(c => !c.IsSynced).ToListAsync();
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
+        }
+
+        public async Task<List<Servicio>> ObtenerServiciosNoSincronizadosAsync(CancellationToken ct = default)
+        {
+            await _dbSemaphore.WaitAsync(ct);
+            try
+            {
+                await EnsureConnectionAsync(ct);
+                return await _conn.Table<Servicio>().Where(s => !s.IsSynced).ToListAsync();
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
+        }
+
+        public async Task MarcarClientesComoSincronizadosAsync(IEnumerable<int> ids, CancellationToken ct = default)
+        {
+            await _dbSemaphore.WaitAsync(ct);
+            try
+            {
+                await EnsureConnectionAsync(ct);
+                foreach (var id in ids)
                 {
-                    await _oneDrive.DescargarImagenSiNoExisteAsync(localPath, remotePath);
+                    var cliente = await _conn.FindAsync<Cliente>(id);
+                    if (cliente != null)
+                    {
+                        cliente.IsSynced = true;
+                        await _conn.UpdateAsync(cliente);
+                    }
                 }
             }
-            catch (Exception ex)
+            finally
             {
-                Console.WriteLine($"Error al descargar la imagen: {ex.Message}");
-                throw;
+                _dbSemaphore.Release();
             }
         }
 
-        public Task<List<Servicio>> ObtenerTodosLosServiciosAsync()
+        public async Task MarcarServiciosComoSincronizadosAsync(IEnumerable<int> ids, CancellationToken ct = default)
         {
-            return _conn.Table<Servicio>().ToListAsync();
+            await _dbSemaphore.WaitAsync(ct);
+            try
+            {
+                await EnsureConnectionAsync(ct);
+                foreach (var id in ids)
+                {
+                    var servicio = await _conn.FindAsync<Servicio>(id);
+                    if (servicio != null)
+                    {
+                        servicio.IsSynced = true;
+                        await _conn.UpdateAsync(servicio);
+                    }
+                }
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
         }
 
-        /* ----------- API pública ----------- */
-
-        // Guardar un nuevo cliente
-        public async Task<int> GuardarClienteAsync(Cliente c)
+        public async Task InsertarOActualizarClienteAsync(Cliente cliente, CancellationToken ct = default)
         {
-            var id = await _conn.InsertAsync(c);
-            await BackupAsync();
-            return id;
+            await _dbSemaphore.WaitAsync(ct);
+            try
+            {
+                await EnsureConnectionAsync(ct);
+                var existente = await _conn.FindAsync<Cliente>(cliente.Id);
+                if (existente == null)
+                {
+                    await _conn.InsertAsync(cliente);
+                }
+                else if (cliente.FechaModificacion > existente.FechaModificacion)
+                {
+                    await _conn.UpdateAsync(cliente);
+                }
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
         }
 
-        // Guardar un nuevo servicio
-        public async Task<int> GuardarServicioAsync(Servicio s)
+        public async Task InsertarOActualizarServicioAsync(Servicio servicio, CancellationToken ct = default)
         {
-            var id = await _conn.InsertAsync(s);
-            await BackupAsync();
-            return id;
+            await _dbSemaphore.WaitAsync(ct);
+            try
+            {
+                await EnsureConnectionAsync(ct);
+                var existente = await _conn.FindAsync<Servicio>(servicio.Id);
+                if (existente == null)
+                {
+                    await _conn.InsertAsync(servicio);
+                }
+                else if (servicio.FechaModificacion > existente.FechaModificacion)
+                {
+                    await _conn.UpdateAsync(servicio);
+                }
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
         }
 
-        // Obtener todos los clientes
-        public Task<List<Cliente>> ObtenerClientesAsync() =>
-            _conn.Table<Cliente>().ToListAsync();
+        // --- Sincronización segura y restauración ---
 
-        // Obtener servicios de un cliente específico
-        public Task<List<Servicio>> ObtenerServiciosAsync(int clienteId) =>
-            _conn.Table<Servicio>()
-                 .Where(s => s.ClienteId == clienteId)
-                 .ToListAsync();
-
-        // Actualizar un cliente existente
-        public async Task<int> ActualizarClienteAsync(Cliente c)
+        public async Task SincronizarBidireccionalAsync(CancellationToken ct = default)
         {
-            var rowsAffected = await _conn.UpdateAsync(c);
-            await BackupAsync();
-            return rowsAffected;
+            await _dbSemaphore.WaitAsync(ct);
+            try
+            {
+                if (_conn != null)
+                {
+                    await _conn.CloseAsync();
+                    _conn = null;
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    await Task.Delay(100);
+                }
+
+                // Llama a la sincronización bidireccional de OneDriveService
+                await _oneDrive.SincronizarBidireccionalAsync(ct, this);
+
+                // Reabre la conexión después de la sincronización
+                _conn = new SQLiteAsyncConnection(_dbPath);
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
         }
 
-        // Actualizar un servicio existente
-        public async Task<int> ActualizarServicioAsync(Servicio s)
+        public void RestaurarBaseDeDatosDesdeContenido(string contenido)
         {
-            var rowsAffected = await _conn.UpdateAsync(s);
-            await BackupAsync();
-            return rowsAffected;
-        }
-
-        // Eliminar un cliente
-        public async Task<int> EliminarClienteAsync(Cliente c)
-        {
-            var rowsAffected = await _conn.DeleteAsync(c);
-            await BackupAsync();
-            return rowsAffected;
-        }
-
-        // Eliminar un servicio
-        public async Task<int> EliminarServicioAsync(Servicio s)
-        {
-            var rowsAffected = await _conn.DeleteAsync(s);
-            await BackupAsync();
-            return rowsAffected;
+            _dbSemaphore.Wait();
+            try
+            {
+                if (_conn != null)
+                {
+                    _conn.CloseAsync().GetAwaiter().GetResult();
+                    _conn = null;
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    Thread.Sleep(100);
+                }
+                File.WriteAllText(_dbPath, contenido);
+                File.SetAttributes(_dbPath, FileAttributes.Normal);
+                _conn = new SQLiteAsyncConnection(_dbPath);
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
         }
     }
 }

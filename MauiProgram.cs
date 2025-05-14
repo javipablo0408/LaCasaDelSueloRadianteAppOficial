@@ -6,6 +6,7 @@ using Microsoft.Maui.Hosting;
 using Microsoft.Maui.Storage;
 using LaCasaDelSueloRadianteApp.Services;
 using System.IO;
+using Microsoft.Extensions.Logging;
 
 namespace LaCasaDelSueloRadianteApp;
 
@@ -13,30 +14,31 @@ public static class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
+        AppPaths.EnsureDirectoriesExist();
+
         var builder = MauiApp.CreateBuilder();
 
         builder
             .UseMauiApp<App>()
-            .UseMauiCommunityToolkit()          // Toolkit
+            .UseMauiCommunityToolkit()
             .ConfigureFonts(f =>
             {
                 f.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 f.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
             });
 
-        // Registrar servicios
+        // Servicios
         builder.Services.AddSingleton<MauiMsalAuthService>();
-        builder.Services.AddSingleton<OneDriveService>();
-        builder.Services.AddHostedService<OneDriveSyncService>(); // Servicio en segundo plano
-        // Otros servicios, ejemplo para imágenes y base de datos:
+        builder.Services.AddHttpClient<OneDriveService>();
         builder.Services.AddSingleton<IImageService, ImageService>();
         builder.Services.AddSingleton<DatabaseService>(sp =>
         {
-            var dbFile = Path.Combine(FileSystem.AppDataDirectory, "clientes.db3");
-            return new DatabaseService(dbFile, sp.GetRequiredService<OneDriveService>());
+            var oneDrive = sp.GetRequiredService<OneDriveService>();
+            var logger = sp.GetRequiredService<ILogger<DatabaseService>>();
+            return new DatabaseService(oneDrive, logger);
         });
 
-        // Registrar páginas
+        // Páginas
         builder.Services.AddTransient<LoginPage>();
         builder.Services.AddTransient<AgregarPage>();
         builder.Services.AddTransient<ServicioDetallePage>();
@@ -44,11 +46,12 @@ public static class MauiProgram
         builder.Services.AddSingleton<AppShell>();
 
         var app = builder.Build();
-        App.Services = app.Services; // Acceso global opcional
+        App.Services = app.Services;
 
-        // Llamar a la sincronización automática de imágenes
+        // Sincronización automática de imágenes y total (fire-and-forget)
         var oneDriveService = app.Services.GetRequiredService<OneDriveService>();
         oneDriveService.IniciarSincronizacionAutomaticaImagenes();
+        _ = oneDriveService.SincronizarTodoAsync();
 
         return app;
     }

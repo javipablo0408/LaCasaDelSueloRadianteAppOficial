@@ -100,10 +100,10 @@ namespace LaCasaDelSueloRadianteApp
 
         protected override async void OnAppearing()
         {
+            base.OnAppearing();
             try
             {
                 System.Diagnostics.Debug.WriteLine("HistorialPage.OnAppearing - Iniciando");
-                base.OnAppearing();
                 await CargarDatosAsync();
                 System.Diagnostics.Debug.WriteLine("HistorialPage.OnAppearing - Completado");
             }
@@ -121,7 +121,7 @@ namespace LaCasaDelSueloRadianteApp
                 IsLoading = true;
 
                 // Cargar servicios desde la base de datos
-                var servicios = await _db.ObtenerTodosLosServiciosAsync();
+                var servicios = await _db.ObtenerServiciosAsync(0);
 
                 // Actualizar colección de servicios
                 Servicios.Clear();
@@ -132,20 +132,20 @@ namespace LaCasaDelSueloRadianteApp
 
                 // Filtrar servicios
                 FiltrarServicios();
-
-                IsLoading = false;
             }
             catch (SQLite.SQLiteException sqlEx)
             {
-                IsLoading = false;
                 System.Diagnostics.Debug.WriteLine($"Error de SQLite: {sqlEx.Message}\n{sqlEx.StackTrace}");
                 await DisplayAlert("Error de base de datos", $"No se pudieron cargar los servicios: {sqlEx.Message}", "OK");
             }
             catch (Exception ex)
             {
-                IsLoading = false;
                 System.Diagnostics.Debug.WriteLine($"Error al cargar servicios: {ex.Message}\n{ex.StackTrace}");
                 await DisplayAlert("Error", $"No se pudieron cargar los servicios: {ex.Message}", "OK");
+            }
+            finally
+            {
+                IsLoading = false;
             }
         }
 
@@ -238,9 +238,16 @@ namespace LaCasaDelSueloRadianteApp
                 await DisplayAlert("Error", $"No se pudieron cargar los detalles del servicio: {ex.Message}", "OK");
             }
         }
+
+        // Implementación de INotifyPropertyChanged
+        public new event PropertyChangedEventHandler PropertyChanged;
+        protected new void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 
-    // Clase para el convertidor de string no vacío
+    // Convertidor para comprobar si un string no está vacío
     public class NotEmptyConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
@@ -258,7 +265,7 @@ namespace LaCasaDelSueloRadianteApp
         }
     }
 
-    // La clase ServicioViewModel se mantiene igual
+    // ViewModel para Servicio
     public class ServicioViewModel : INotifyPropertyChanged
     {
         private readonly Servicio _servicio;

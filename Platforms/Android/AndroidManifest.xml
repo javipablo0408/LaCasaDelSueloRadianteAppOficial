@@ -1,6 +1,42 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-	<application android:allowBackup="true" android:icon="@mipmap/appicon" android:roundIcon="@mipmap/appicon_round" android:supportsRtl="true"></application>
-	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools"
+          package="com.companyname.lacasadelsueloradianteapp">
+
+	<application
+	  android:allowBackup="true"
+	  android:icon="@mipmap/appicon"
+	  android:supportsRtl="true"
+	  android:label="LaCasaDelSueloRadianteApp"
+	  android:requestLegacyExternalStorage="true">
+
+		<!-- MSAL intent-filter para autenticación -->
+		<activity
+		  android:name="microsoft.identity.client.BrowserTabActivity"
+		  android:exported="true">
+			<intent-filter>
+				<action android:name="android.intent.action.VIEW" />
+				<category android:name="android.intent.category.DEFAULT" />
+				<category android:name="android.intent.category.BROWSABLE" />
+				<data android:scheme="msal30af0f82-bbeb-4f49-89cd-3ff526bc339b" android:host="auth" />
+			</intent-filter>
+		</activity>
+
+	</application>
+
+	<!-- Permite consultar apps de autenticación -->
+	<queries>
+		<package android:name="com.azure.authenticator" />
+		<package android:name="com.microsoft.windowsintune.companyportal" />
+		<!-- Puedes agregar aquí el package de tu app si es necesario -->
+	</queries>
+
+	<!-- Permisos necesarios -->
 	<uses-permission android:name="android.permission.INTERNET" />
+	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+	<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+	<uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+	<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+	<uses-permission android:name="android.permission.CAMERA" />
+	<uses-permission android:name="android.permission.VIBRATE" />
 </manifest>
