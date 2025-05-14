@@ -311,9 +311,37 @@ namespace LaCasaDelSueloRadianteApp.Services
                 {
                     await _conn.InsertAsync(cliente);
                 }
-                else if (cliente.FechaModificacion > existente.FechaModificacion)
+                else
                 {
-                    await _conn.UpdateAsync(cliente);
+                    bool modificado = false;
+
+                    if (cliente.FechaModificacionNombre> existente.FechaModificacionNombre)
+                    {
+                        existente.NombreCliente = cliente.NombreCliente;
+                        existente.FechaModificacionNombre = cliente.FechaModificacionNombre;
+                        modificado = true;
+                    }
+                    if (cliente.FechaModificacionDireccion > existente.FechaModificacionDireccion)
+                    {
+                        existente.Direccion = cliente.Direccion;
+                        existente.FechaModificacionDireccion = cliente.FechaModificacionDireccion;
+                        modificado = true;
+                    }
+                    if (cliente.FechaModificacionEmail > existente.FechaModificacionEmail)
+                    {
+                        existente.Email = cliente.Email;
+                        existente.FechaModificacionEmail = cliente.FechaModificacionEmail;
+                        modificado = true;
+                    }
+                    if (cliente.FechaModificacionTelefono > existente.FechaModificacionTelefono)
+                    {
+                        existente.Telefono = cliente.Telefono;
+                        existente.FechaModificacionTelefono = cliente.FechaModificacionTelefono;
+                        modificado = true;
+                    }
+
+                    if (modificado)
+                        await _conn.UpdateAsync(existente);
                 }
             }
             finally
@@ -333,9 +361,85 @@ namespace LaCasaDelSueloRadianteApp.Services
                 {
                     await _conn.InsertAsync(servicio);
                 }
-                else if (servicio.FechaModificacion > existente.FechaModificacion)
+                else
                 {
-                    await _conn.UpdateAsync(servicio);
+                    bool modificado = false;
+
+                    if (servicio.FechaModificacionFecha > existente.FechaModificacionFecha)
+                    {
+                        existente.Fecha = servicio.Fecha;
+                        existente.FechaModificacionFecha = servicio.FechaModificacionFecha;
+                        modificado = true;
+                    }
+                    if (servicio.FechaModificacionTipoServicio > existente.FechaModificacionTipoServicio)
+                    {
+                        existente.TipoServicio = servicio.TipoServicio;
+                        existente.FechaModificacionTipoServicio = servicio.FechaModificacionTipoServicio;
+                        modificado = true;
+                    }
+                    if (servicio.FechaModificacionTipoInstalacion > existente.FechaModificacionTipoInstalacion)
+                    {
+                        existente.TipoInstalacion = servicio.TipoInstalacion;
+                        existente.FechaModificacionTipoInstalacion = servicio.FechaModificacionTipoInstalacion;
+                        modificado = true;
+                    }
+                    if (servicio.FechaModificacionFuenteCalor > existente.FechaModificacionFuenteCalor)
+                    {
+                        existente.FuenteCalor = servicio.FuenteCalor;
+                        existente.FechaModificacionFuenteCalor = servicio.FechaModificacionFuenteCalor;
+                        modificado = true;
+                    }
+                    if (servicio.FechaModificacionValorPh > existente.FechaModificacionValorPh)
+                    {
+                        existente.ValorPh = servicio.ValorPh;
+                        existente.FechaModificacionValorPh = servicio.FechaModificacionValorPh;
+                        modificado = true;
+                    }
+                    if (servicio.FechaModificacionValorConductividad > existente.FechaModificacionValorConductividad)
+                    {
+                        existente.ValorConductividad = servicio.ValorConductividad;
+                        existente.FechaModificacionValorConductividad = servicio.FechaModificacionValorConductividad;
+                        modificado = true;
+                    }
+                    if (servicio.FechaModificacionValorConcentracion > existente.FechaModificacionValorConcentracion)
+                    {
+                        existente.ValorConcentracion = servicio.ValorConcentracion;
+                        existente.FechaModificacionValorConcentracion = servicio.FechaModificacionValorConcentracion;
+                        modificado = true;
+                    }
+                    if (servicio.FechaModificacionValorTurbidez > existente.FechaModificacionValorTurbidez)
+                    {
+                        existente.ValorTurbidez = servicio.ValorTurbidez;
+                        existente.FechaModificacionValorTurbidez = servicio.FechaModificacionValorTurbidez;
+                        modificado = true;
+                    }
+                    if (servicio.FechaModificacionFotoPhUrl > existente.FechaModificacionFotoPhUrl)
+                    {
+                        existente.FotoPhUrl = servicio.FotoPhUrl;
+                        existente.FechaModificacionFotoPhUrl = servicio.FechaModificacionFotoPhUrl;
+                        modificado = true;
+                    }
+                    if (servicio.FechaModificacionFotoConductividadUrl > existente.FechaModificacionFotoConductividadUrl)
+                    {
+                        existente.FotoConductividadUrl = servicio.FotoConductividadUrl;
+                        existente.FechaModificacionFotoConductividadUrl = servicio.FechaModificacionFotoConductividadUrl;
+                        modificado = true;
+                    }
+                    if (servicio.FechaModificacionFotoConcentracionUrl > existente.FechaModificacionFotoConcentracionUrl)
+                    {
+                        existente.FotoConcentracionUrl = servicio.FotoConcentracionUrl;
+                        existente.FechaModificacionFotoConcentracionUrl = servicio.FechaModificacionFotoConcentracionUrl;
+                        modificado = true;
+                    }
+                    if (servicio.FechaModificacionFotoTurbidezUrl > existente.FechaModificacionFotoTurbidezUrl)
+                    {
+                        existente.FotoTurbidezUrl = servicio.FotoTurbidezUrl;
+                        existente.FechaModificacionFotoTurbidezUrl = servicio.FechaModificacionFotoTurbidezUrl;
+                        modificado = true;
+                    }
+
+                    if (modificado)
+                        await _conn.UpdateAsync(existente);
                 }
             }
             finally
