@@ -15,5 +15,7 @@ namespace LaCasaDelSueloRadianteApp
         public string Telefono { get; set; }
         public DateTime FechaModificacionTelefono { get; set; }
         public bool IsSynced { get; set; }
+        public bool IsDeleted { get; set; }
+        public DateTime FechaModificacionEliminado { get; set; }
     }
 }

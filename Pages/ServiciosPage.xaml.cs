@@ -1,8 +1,8 @@
-using System;
 using System.Collections.ObjectModel;
-using System.Threading.Tasks;
+using System.Windows.Input;
 using Microsoft.Maui.Controls;
 using LaCasaDelSueloRadianteApp.Services;
+using LaCasaDelSueloRadianteApp.Models;
 
 namespace LaCasaDelSueloRadianteApp;
 
@@ -10,9 +10,14 @@ public partial class ServiciosPage : ContentPage
 {
     private readonly DatabaseService _db;
     private readonly Cliente _cliente;
-    private readonly IImageService _imgSvc; // Add a field for IImageService
+    private readonly IImageService _imgSvc;
 
-    public ObservableCollection<Servicio> Servicios { get; set; } = new();
+    public ObservableCollection<Servicio> Servicios { get; } = new();
+
+    // Si usas filtrado, puedes exponer una propiedad ServiciosFiltrados
+    public ObservableCollection<Servicio> ServiciosFiltrados => Servicios;
+
+    public ICommand NavegarADetalleCommand { get; }
 
     public ServiciosPage(Cliente cliente)
     {
@@ -21,19 +26,32 @@ public partial class ServiciosPage : ContentPage
         _cliente = cliente;
         Title = $"Servicios de {cliente.NombreCliente}";
 
-        // Recuperar DatabaseService desde el contenedor de servicios
         _db = App.Services.GetService<DatabaseService>()
               ?? throw new InvalidOperationException("No se pudo obtener la instancia de DatabaseService.");
 
-        // Recuperar IImageService desde el contenedor de servicios
         _imgSvc = App.Services.GetService<IImageService>()
                  ?? throw new InvalidOperationException("No se pudo obtener la instancia de IImageService.");
+
+        NavegarADetalleCommand = new Command<Servicio>(async (servicio) =>
+        {
+            if (servicio != null)
+            {
+                var instalador = await _db.ObtenerInstaladorAsync();
+                if (instalador == null)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Error", "No se encontró información del instalador.", "OK");
+                    return;
+                }
+                await Navigation.PushAsync(new ServicioDetallePage(servicio, _cliente, instalador, _imgSvc));
+            }
+        });
+
+        BindingContext = this;
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-
         await CargarServiciosAsync();
     }
 
@@ -44,31 +62,11 @@ public partial class ServiciosPage : ContentPage
             var servicios = await _db.ObtenerServiciosAsync(_cliente.Id);
             Servicios.Clear();
             foreach (var servicio in servicios)
-            {
                 Servicios.Add(servicio);
-            }
-
-            ServiciosCollectionView.ItemsSource = Servicios;
         }
         catch (Exception ex)
         {
             await DisplayAlert("Error", $"Error al cargar los servicios: {ex.Message}", "OK");
         }
-    }
-
-    private async void OnServicioSelected(object sender, SelectionChangedEventArgs e)
-    {
-        if (e.CurrentSelection.FirstOrDefault() is Servicio servicioSeleccionado)
-        {
-            // Depuración: Verificar los datos del servicio seleccionado
-            System.Diagnostics.Debug.WriteLine($"Servicio seleccionado: {servicioSeleccionado.TipoServicio}");
-            System.Diagnostics.Debug.WriteLine($"FotoPhUrl: {servicioSeleccionado.FotoPhUrl}");
-
-            // Navegar a la página de detalles del servicio seleccionado
-            await Navigation.PushAsync(new ServicioDetallePage(servicioSeleccionado, _cliente, _imgSvc)); // Ahora se pasa _cliente
-        }
-
-        // Deseleccionar el servicio después de la navegación
-        ((CollectionView)sender).SelectedItem = null;
     }
 }

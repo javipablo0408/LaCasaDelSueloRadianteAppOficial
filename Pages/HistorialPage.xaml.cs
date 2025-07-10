@@ -1,297 +1,201 @@
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using System.Windows.Input;
-using Microsoft.Maui.Controls;
-using Microsoft.Maui.Graphics;
+using System.Linq;
 using LaCasaDelSueloRadianteApp.Services;
+using LaCasaDelSueloRadianteApp.Models;
 
-namespace LaCasaDelSueloRadianteApp
+namespace LaCasaDelSueloRadianteApp.Pages;
+
+public partial class HistorialPage : ContentPage
 {
-    public partial class HistorialPage : ContentPage, INotifyPropertyChanged
+    private readonly DatabaseService _db;
+    private readonly IImageService _imageService;
+
+    public HistorialPage(DatabaseService db, IImageService imageService)
     {
-        private readonly DatabaseService _db;
+        InitializeComponent();
+        _db = db;
+        _imageService = imageService;
+        BindingContext = new HistorialPageViewModel(_db, _imageService, this);
+    }
 
-        // Propiedades para el filtrado
-        private string _textoBusqueda;
-        public string TextoBusqueda
+    // Evento para navegar al detalle del servicio seleccionado
+    public async void ServiciosCollectionView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (e.CurrentSelection.FirstOrDefault() is HistorialItem itemSeleccionado)
         {
-            get => _textoBusqueda;
-            set
+            ServiciosCollectionView.SelectedItem = null;
+
+            var servicio = await _db.ObtenerTodosLosServiciosAsync();
+            var servicioSeleccionado = servicio.FirstOrDefault(s => s.Id == itemSeleccionado.ServicioId);
+            var cliente = await _db.ObtenerClientePorIdAsync(itemSeleccionado.ClienteId);
+            var instalador = await _db.ObtenerInstaladorAsync();
+
+            if (servicioSeleccionado == null)
             {
-                if (_textoBusqueda != value)
-                {
-                    _textoBusqueda = value;
-                    OnPropertyChanged();
-                    FiltrarServicios();
-                }
+                await DisplayAlert("Error", "No se encontró el servicio.", "OK");
+                return;
             }
+            if (cliente == null)
+            {
+                await DisplayAlert("Error", $"No se encontró el cliente para este servicio (ClienteId: {itemSeleccionado.ClienteId}).", "OK");
+                return;
+            }
+            if (instalador == null)
+            {
+                await DisplayAlert("Error", "No se encontró un instalador en la base de datos.", "OK");
+                return;
+            }
+            if (_imageService == null)
+            {
+                await DisplayAlert("Error", "No se pudo obtener el servicio de imágenes.", "OK");
+                return;
+            }
+
+            await Navigation.PushAsync(
+                new ServicioDetallePage(servicioSeleccionado, cliente, instalador, _imageService)
+            );
         }
+    }
+}
 
-        private DateTime _fechaMostrada = DateTime.Now;
-        public DateTime FechaMostrada
+// Clase auxiliar para mostrar datos del cliente en la lista
+public class HistorialItem
+{
+    public int ServicioId { get; set; }
+    public int ClienteId { get; set; }
+    public string NombreCliente { get; set; } = "";
+    public string Direccion { get; set; } = "";
+    public string Telefono { get; set; } = "";
+}
+
+public class HistorialPageViewModel : INotifyPropertyChanged
+{
+    private readonly DatabaseService _db;
+    private readonly IImageService _imageService;
+    private readonly Page _page;
+
+    public ObservableCollection<Servicio> Servicios { get; set; } = new();
+    public ObservableCollection<HistorialItem> ServiciosFiltrados { get; set; } = new();
+
+    private List<Cliente> _clientes = new();
+
+    private string _textoBusqueda = string.Empty;
+    public string TextoBusqueda
+    {
+        get => _textoBusqueda;
+        set
         {
-            get => _fechaMostrada;
-            set
+            if (_textoBusqueda != value)
             {
-                if (_fechaMostrada != value)
-                {
-                    _fechaMostrada = value;
-                    OnPropertyChanged();
-                    FiltrarServicios();
-                }
+                _textoBusqueda = value;
+                OnPropertyChanged();
+                FiltrarServiciosPorFecha();
             }
-        }
-
-        private bool _isLoading;
-        public bool IsLoading
-        {
-            get => _isLoading;
-            set
-            {
-                if (_isLoading != value)
-                {
-                    _isLoading = value;
-                    OnPropertyChanged();
-                }
-            }
-        }
-
-        // Colecciones
-        public ObservableCollection<Servicio> Servicios { get; } = new();
-        public ObservableCollection<ServicioViewModel> ServiciosFiltrados { get; } = new();
-
-        // Comandos
-        public ICommand LimpiarBusquedaCommand { get; }
-        public ICommand FechaAnteriorCommand { get; }
-        public ICommand FechaSiguienteCommand { get; }
-        public ICommand MostrarDetallesCommand { get; }
-
-        public HistorialPage()
-        {
-            try
-            {
-                System.Diagnostics.Debug.WriteLine("Iniciando constructor de HistorialPage");
-                InitializeComponent();
-
-                // Obtener servicios
-                _db = App.Services.GetService<DatabaseService>()
-                    ?? throw new InvalidOperationException("No se pudo obtener DatabaseService");
-
-                // Inicializar comandos
-                LimpiarBusquedaCommand = new Command(LimpiarBusqueda);
-                FechaAnteriorCommand = new Command(MostrarFechaAnterior);
-                FechaSiguienteCommand = new Command(MostrarFechaSiguiente);
-                MostrarDetallesCommand = new Command<ServicioViewModel>(MostrarDetalles);
-
-                BindingContext = this;
-                System.Diagnostics.Debug.WriteLine("Constructor de HistorialPage completado");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error al inicializar HistorialPage: {ex.Message}\n{ex.StackTrace}");
-                MainThread.BeginInvokeOnMainThread(async () =>
-                    await DisplayAlert("Error", $"Error al inicializar la página: {ex.Message}", "OK"));
-            }
-        }
-
-        protected override async void OnAppearing()
-        {
-            base.OnAppearing();
-            try
-            {
-                System.Diagnostics.Debug.WriteLine("HistorialPage.OnAppearing - Iniciando");
-                await CargarDatosAsync();
-                System.Diagnostics.Debug.WriteLine("HistorialPage.OnAppearing - Completado");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error en OnAppearing: {ex.Message}\n{ex.StackTrace}");
-                await DisplayAlert("Error", $"Error al cargar la página: {ex.Message}", "OK");
-            }
-        }
-
-        private async Task CargarDatosAsync()
-        {
-            try
-            {
-                IsLoading = true;
-
-                // Cargar servicios desde la base de datos
-                var servicios = await _db.ObtenerServiciosAsync(0);
-
-                // Actualizar colección de servicios
-                Servicios.Clear();
-                foreach (var servicio in servicios)
-                {
-                    Servicios.Add(servicio);
-                }
-
-                // Filtrar servicios
-                FiltrarServicios();
-            }
-            catch (SQLite.SQLiteException sqlEx)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error de SQLite: {sqlEx.Message}\n{sqlEx.StackTrace}");
-                await DisplayAlert("Error de base de datos", $"No se pudieron cargar los servicios: {sqlEx.Message}", "OK");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error al cargar servicios: {ex.Message}\n{ex.StackTrace}");
-                await DisplayAlert("Error", $"No se pudieron cargar los servicios: {ex.Message}", "OK");
-            }
-            finally
-            {
-                IsLoading = false;
-            }
-        }
-
-        private void FiltrarServicios()
-        {
-            try
-            {
-                var consulta = Servicios.AsEnumerable();
-
-                // Filtrar por texto de búsqueda
-                if (!string.IsNullOrWhiteSpace(TextoBusqueda))
-                {
-                    var busqueda = TextoBusqueda.ToLowerInvariant();
-                    consulta = consulta.Where(s =>
-                        (!string.IsNullOrEmpty(s.TipoServicio) && s.TipoServicio.ToLowerInvariant().Contains(busqueda)) ||
-                        (!string.IsNullOrEmpty(s.TipoInstalacion) && s.TipoInstalacion.ToLowerInvariant().Contains(busqueda)) ||
-                        (!string.IsNullOrEmpty(s.FuenteCalor) && s.FuenteCalor.ToLowerInvariant().Contains(busqueda)));
-                }
-                else
-                {
-                    // Si no hay búsqueda, filtrar por fecha mostrada
-                    consulta = consulta.Where(s => s.Fecha.Date == FechaMostrada.Date);
-                }
-
-                // Ordenar por fecha descendente (más recientes primero)
-                consulta = consulta.OrderByDescending(s => s.Fecha);
-
-                // Actualizar lista de servicios filtrados
-                ServiciosFiltrados.Clear();
-                foreach (var servicio in consulta)
-                {
-                    ServiciosFiltrados.Add(new ServicioViewModel(servicio));
-                }
-
-                System.Diagnostics.Debug.WriteLine($"Servicios filtrados: {ServiciosFiltrados.Count}");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error al filtrar servicios: {ex.Message}\n{ex.StackTrace}");
-            }
-        }
-
-        private void LimpiarBusqueda()
-        {
-            TextoBusqueda = string.Empty;
-        }
-
-        private void MostrarFechaAnterior()
-        {
-            FechaMostrada = FechaMostrada.AddDays(-1);
-        }
-
-        private void MostrarFechaSiguiente()
-        {
-            FechaMostrada = FechaMostrada.AddDays(1);
-        }
-
-        private async void MostrarDetalles(ServicioViewModel servicioVM)
-        {
-            if (servicioVM == null) return;
-
-            try
-            {
-                // Encontrar el servicio original por ID
-                var servicio = Servicios.FirstOrDefault(s => s.Id == servicioVM.Id);
-                if (servicio == null)
-                {
-                    await DisplayAlert("Error", "No se pudo encontrar el servicio seleccionado.", "OK");
-                    return;
-                }
-
-                // Obtener el cliente para este servicio
-                var clientes = await _db.ObtenerClientesAsync();
-                var cliente = clientes.FirstOrDefault(c => c.Id == servicio.ClienteId);
-
-                if (cliente != null)
-                {
-                    // Navegar a la página de detalles
-                    var imgSvc = App.Services.GetService<IImageService>();
-                    await Navigation.PushAsync(new ServicioDetallePage(servicio, cliente, imgSvc));
-                }
-                else
-                {
-                    await DisplayAlert("Error", "No se pudo encontrar el cliente asociado a este servicio.", "OK");
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error al mostrar detalles: {ex.Message}\n{ex.StackTrace}");
-                await DisplayAlert("Error", $"No se pudieron cargar los detalles del servicio: {ex.Message}", "OK");
-            }
-        }
-
-        // Implementación de INotifyPropertyChanged
-        public new event PropertyChangedEventHandler PropertyChanged;
-        protected new void OnPropertyChanged([CallerMemberName] string propertyName = null)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
 
-    // Convertidor para comprobar si un string no está vacío
-    public class NotEmptyConverter : IValueConverter
+    private DateTime _fechaSeleccionada = DateTime.Today;
+    public DateTime FechaSeleccionada
     {
-        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        get => _fechaSeleccionada;
+        set
         {
-            if (value is string stringValue)
+            if (_fechaSeleccionada != value)
             {
-                return !string.IsNullOrWhiteSpace(stringValue);
+                _fechaSeleccionada = value;
+                OnPropertyChanged();
+                FiltrarServiciosPorFecha();
+                OnPropertyChanged(nameof(PuedeRetroceder));
+                OnPropertyChanged(nameof(PuedeAvanzar));
             }
-            return false;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
-        {
-            throw new NotImplementedException();
         }
     }
 
-    // ViewModel para Servicio
-    public class ServicioViewModel : INotifyPropertyChanged
+    public DateTime FechaMinima { get; set; } = DateTime.Today.AddYears(-5);
+    public DateTime FechaMaxima { get; set; } = DateTime.Today.AddYears(1);
+
+    public bool PuedeRetroceder => FechaSeleccionada > FechaMinima;
+    public bool PuedeAvanzar => FechaSeleccionada < FechaMaxima;
+
+    public ICommand DiaAnteriorCommand { get; }
+    public ICommand DiaSiguienteCommand { get; }
+
+    public HistorialPageViewModel(DatabaseService db, IImageService imageService, Page page)
     {
-        private readonly Servicio _servicio;
-
-        public ServicioViewModel(Servicio servicio)
+        _db = db;
+        _imageService = imageService;
+        _page = page;
+        DiaAnteriorCommand = new Command(() =>
         {
-            _servicio = servicio ?? throw new ArgumentNullException(nameof(servicio));
-        }
-
-        public Servicio Original => _servicio;
-        public int Id => _servicio.Id;
-        public int ClienteId => _servicio.ClienteId;
-        public DateTime Fecha => _servicio.Fecha;
-        public string TipoServicio => _servicio.TipoServicio;
-        public string TipoInstalacion => _servicio.TipoInstalacion;
-        public string FuenteCalor => _servicio.FuenteCalor;
-        public double? ValorPh => _servicio.ValorPh;
-        public double? ValorConductividad => _servicio.ValorConductividad;
-        public double? ValorConcentracion => _servicio.ValorConcentracion;
-        public double? ValorTurbidez => _servicio.ValorTurbidez;
-
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+            if (PuedeRetroceder)
+                FechaSeleccionada = FechaSeleccionada.AddDays(-1);
+        });
+        DiaSiguienteCommand = new Command(() =>
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
+            if (PuedeAvanzar)
+                FechaSeleccionada = FechaSeleccionada.AddDays(1);
+        });
+        CargarServicios();
     }
+
+    private async void CargarServicios()
+    {
+        var servicios = await _db.ObtenerTodosLosServiciosAsync();
+        var clientes = await _db.ObtenerClientesAsync();
+        Servicios.Clear();
+        _clientes = clientes;
+        foreach (var servicio in servicios)
+            Servicios.Add(servicio);
+
+        if (Servicios.Any())
+        {
+            FechaMinima = Servicios.Min(s => s.Fecha).Date;
+            FechaMaxima = Servicios.Max(s => s.Fecha).Date;
+            FechaSeleccionada = FechaMaxima;
+            OnPropertyChanged(nameof(FechaMinima));
+            OnPropertyChanged(nameof(FechaMaxima));
+            OnPropertyChanged(nameof(PuedeRetroceder));
+            OnPropertyChanged(nameof(PuedeAvanzar));
+        }
+        FiltrarServiciosPorFecha();
+    }
+
+    private void FiltrarServiciosPorFecha()
+    {
+        var texto = TextoBusqueda?.ToLowerInvariant() ?? string.Empty;
+
+        var filtrados = Servicios
+            .Where(s => s.Fecha.Date == FechaSeleccionada.Date)
+            .Select(s =>
+            {
+                var cliente = _clientes.FirstOrDefault(c => c != null && c.Id == s.ClienteId);
+                return new HistorialItem
+                {
+                    ServicioId = s.Id,
+                    ClienteId = s.ClienteId,
+                    NombreCliente = cliente?.NombreCliente ?? "",
+                    Direccion = cliente?.Direccion ?? "",
+                    Telefono = cliente?.Telefono ?? ""
+                };
+            })
+            .Where(item =>
+                string.IsNullOrWhiteSpace(texto) ||
+                (item.NombreCliente?.ToLowerInvariant().Contains(texto) ?? false) ||
+                (item.Direccion?.ToLowerInvariant().Contains(texto) ?? false) ||
+                (item.Telefono?.ToLowerInvariant().Contains(texto) ?? false)
+            )
+            .ToList();
+
+        ServiciosFiltrados.Clear();
+        foreach (var item in filtrados)
+            ServiciosFiltrados.Add(item);
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    void OnPropertyChanged([CallerMemberName] string name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

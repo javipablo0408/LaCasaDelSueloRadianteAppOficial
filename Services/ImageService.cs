@@ -1,12 +1,25 @@
 ﻿using System.Net.Http;
-using NativeMedia;
 using System.IO;
+using Microsoft.Maui.Storage;
 
 namespace LaCasaDelSueloRadianteApp.Services;
 
 public interface IImageService
 {
+    /// <summary>
+    /// Descarga una imagen desde una URL y la guarda en AppDataDirectory. Si ya existe, la retorna.
+    /// </summary>
+    /// <param name="url">URL de la imagen remota</param>
+    /// <param name="progress">Progreso opcional</param>
+    /// <returns>Nombre del archivo guardado (no ruta completa)</returns>
     Task<string?> DownloadAndSaveAsync(string url, IProgress<double>? progress = null);
+
+    /// <summary>
+    /// Devuelve la ruta local completa de una imagen guardada por nombre de archivo.
+    /// </summary>
+    /// <param name="fileName">Nombre del archivo</param>
+    /// <returns>Ruta local completa</returns>
+    string GetLocalPath(string fileName);
 }
 
 public sealed class ImageService : IImageService
@@ -15,6 +28,12 @@ public sealed class ImageService : IImageService
 
     public async Task<string?> DownloadAndSaveAsync(string url, IProgress<double>? progress = null)
     {
+        var fileName = Path.GetFileName(new Uri(url).LocalPath);
+        var localPath = Path.Combine(FileSystem.AppDataDirectory, fileName);
+
+        if (File.Exists(localPath))
+            return fileName;
+
         using var resp = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
         resp.EnsureSuccessStatusCode();
 
@@ -33,19 +52,13 @@ public sealed class ImageService : IImageService
         }
 
         var bytes = ms.ToArray();
-        var fileName = Path.GetFileName(new Uri(url).LocalPath);
+        await File.WriteAllBytesAsync(localPath, bytes);
 
-#if ANDROID || IOS
-        // Fix: Use the correct overload of MediaGallery.SaveAsync that accepts a MediaFileType and a Stream.
-        using var byteStream = new MemoryStream(bytes);
-        await MediaGallery.SaveAsync(MediaFileType.Image, byteStream, fileName);
-        return fileName; // Return the file name or adjust as needed.
-#else
-        var downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-        Directory.CreateDirectory(downloads);
-        var path = Path.Combine(downloads, fileName);
-        await File.WriteAllBytesAsync(path, bytes);
-        return path;
-#endif
+        return fileName;
+    }
+
+    public string GetLocalPath(string fileName)
+    {
+        return Path.Combine(FileSystem.AppDataDirectory, fileName);
     }
 }

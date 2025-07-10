@@ -29,9 +29,14 @@
 		<package android:name="com.azure.authenticator" />
 		<package android:name="com.microsoft.windowsintune.companyportal" />
 		<!-- Puedes agregar aquí el package de tu app si es necesario -->
+		<intent>
+			<action android:name="android.media.action.IMAGE_CAPTURE" />
+		</intent>
 	</queries>
 
 	<!-- Permisos necesarios -->
+	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 	<uses-permission android:name="android.permission.INTERNET" />
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 	<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />

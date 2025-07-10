@@ -1,11 +1,10 @@
 ﻿using System;
-using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Dispatching;
 using LaCasaDelSueloRadianteApp.Services;
-using Microsoft.Maui.Storage;
+using Microsoft.Maui.Networking;
 
 namespace LaCasaDelSueloRadianteApp
 {
@@ -14,7 +13,10 @@ namespace LaCasaDelSueloRadianteApp
         public static IServiceProvider Services { get; set; } = default!;
 
         private readonly System.Timers.Timer _syncTimer;
-        private bool _isSyncing = false;
+        private volatile bool _isSyncing = false;
+        private readonly object _syncLock = new object();
+
+        private EventHandler<ConnectivityChangedEventArgs> _connectivityChangedHandler;
 
         public App()
         {
@@ -35,152 +37,326 @@ namespace LaCasaDelSueloRadianteApp
                 AutoReset = true,
                 Enabled = false
             };
-            _syncTimer.Elapsed += async (s, e) => await VerificarYSincronizarAsync();
+            _syncTimer.Elapsed += OnSyncTimerElapsed;
 
-            // Ejecutamos la inicialización fuera del constructor para evitar bucles tras el login interactivo
-            MainThread.BeginInvokeOnMainThread(async () => await InitializeAsync());
+            _connectivityChangedHandler = HandleConnectivityChanged;
+            Connectivity.ConnectivityChanged += _connectivityChangedHandler;
+
+            MainThread.BeginInvokeOnMainThread(async () => await InitializeAsync().ConfigureAwait(false));
+        }
+
+        private async void OnSyncTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("[SYNC] [TIMER] Temporizador disparado, iniciando sincronización...");
+            await VerificarYSincronizarAsync("Temporizador periódico").ConfigureAwait(false);
+        }
+
+        private async void HandleConnectivityChanged(object sender, ConnectivityChangedEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SYNC] [CONNECTIVITY] Cambio de conectividad detectado: {e.NetworkAccess}");
+            if (e.NetworkAccess == NetworkAccess.Internet)
+            {
+                System.Diagnostics.Debug.WriteLine("[SYNC] [CONNECTIVITY] Conectividad restaurada. Lanzando sincronización...");
+                var db = Services.GetService<DatabaseService>();
+                if (db != null)
+                {
+                    await db.IntentarSubidaPendienteBaseDeDatosAsync();
+                }
+                await VerificarYSincronizarAsync("Conectividad restaurada").ConfigureAwait(false);
+            }
         }
 
         private async Task InitializeAsync()
         {
+            System.Diagnostics.Debug.WriteLine("[APP] Iniciando InitializeAsync...");
             try
             {
                 var db = Services.GetService<DatabaseService>();
                 if (db == null)
-                    throw new InvalidOperationException("No se pudo resolver DatabaseService.");
+                {
+                    HandleCriticalError("No se pudo resolver DatabaseService.");
+                    return;
+                }
 
-                await db.InitAsync();
-                await ComprobarYDescargarImagenesYBaseDeDatosAsync(db);
+                System.Diagnostics.Debug.WriteLine("[APP] Inicializando base de datos...");
+                await db.InitAsync().ConfigureAwait(false);
+                System.Diagnostics.Debug.WriteLine("[APP] Base de datos inicializada.");
 
                 var auth = Services.GetService<MauiMsalAuthService>();
                 if (auth == null)
-                    throw new InvalidOperationException("No se pudo resolver MauiMsalAuthService.");
+                {
+                    HandleCriticalError("No se pudo resolver MauiMsalAuthService.");
+                    return;
+                }
 
-                var token = await auth.AcquireTokenSilentAsync();
-                System.Diagnostics.Debug.WriteLine("[MSAL] Token silencioso: " + (token != null));
+                System.Diagnostics.Debug.WriteLine("[MSAL] Intentando obtener token silencioso...");
+                var token = await auth.AcquireTokenSilentAsync().ConfigureAwait(false);
+                System.Diagnostics.Debug.WriteLine($"[MSAL] Token silencioso obtenido: {(token != null)}");
 
                 if (token == null)
                 {
                     System.Diagnostics.Debug.WriteLine("[MSAL] Intentando login interactivo...");
-                    token = await auth.AcquireTokenInteractiveAsync();
-                    System.Diagnostics.Debug.WriteLine("[MSAL] Login interactivo completado: " + (token != null));
+                    token = await auth.AcquireTokenInteractiveAsync().ConfigureAwait(false);
+                    System.Diagnostics.Debug.WriteLine($"[MSAL] Login interactivo completado: {(token != null)}");
                 }
 
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    System.Diagnostics.Debug.WriteLine("[MSAL] Estableciendo MainPage: " + (token != null ? "AppShell" : "LoginPage"));
-                    MainPage = token != null
-                        ? Services.GetRequiredService<AppShell>()
-                        : new NavigationPage(Services.GetRequiredService<LoginPage>());
+                    System.Diagnostics.Debug.WriteLine($"[MSAL] Estableciendo MainPage: {(token != null ? "AppShell" : "LoginPage")}");
+                    if (token != null)
+                    {
+                        MainPage = Services.GetRequiredService<AppShell>();
+                    }
+                    else
+                    {
+                        MainPage = new NavigationPage(Services.GetRequiredService<LoginPage>());
+                    }
                 });
 
-                _syncTimer.Start();
+                if (token != null)
+                {
+                    System.Diagnostics.Debug.WriteLine("[SYNC] Autenticación exitosa. Disparando sincronización inicial...");
+                    await VerificarYSincronizarAsync("Inicialización tras login").ConfigureAwait(false);
+
+                    if (!_syncTimer.Enabled)
+                    {
+                        _syncTimer.Start();
+                        System.Diagnostics.Debug.WriteLine("[SYNC] Temporizador de sincronización periódica iniciado.");
+                    }
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("[SYNC] Login no exitoso. No se inicia sincronización ni temporizador.");
+                }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[ERROR] InitializeAsync: {ex}");
+                System.Diagnostics.Debug.WriteLine($"[ERROR] Falla crítica en InitializeAsync: {ex}");
+                HandleCriticalError($"Error al inicializar la aplicación: {ex.Message}");
+            }
+            System.Diagnostics.Debug.WriteLine("[APP] InitializeAsync completado.");
+        }
 
-                MainThread.BeginInvokeOnMainThread(() =>
-                {
-                    MainPage = new ContentPage
-                    {
-                        Content = new ScrollView
-                        {
-                            Content = new Label
-                            {
-                                Text = $"Error al iniciar la aplicación:\n{ex.Message}",
-                                TextColor = Colors.Red,
-                                Margin = new Thickness(20),
-                                LineBreakMode = LineBreakMode.WordWrap
-                            }
-                        }
-                    };
-                });
+        private void HandleCriticalError(string errorMessage)
+        {
+            System.Diagnostics.Debug.WriteLine($"[CRITICAL ERROR HANDLER] Mensaje: {errorMessage}");
+            if (!MainThread.IsMainThread)
+            {
+                MainThread.BeginInvokeOnMainThread(() => SetErrorPage(errorMessage));
+            }
+            else
+            {
+                SetErrorPage(errorMessage);
             }
         }
 
-        private async Task VerificarYSincronizarAsync()
+        private void SetErrorPage(string errorMessage)
         {
-            if (_isSyncing) return;
-            _isSyncing = true;
+            MainPage = new ContentPage
+            {
+                Content = new ScrollView
+                {
+                    Padding = new Thickness(20),
+                    Content = new VerticalStackLayout
+                    {
+                        Spacing = 10,
+                        VerticalOptions = LayoutOptions.Center,
+                        HorizontalOptions = LayoutOptions.Center,
+                        Children =
+                        {
+                            new Label
+                            {
+                                Text = "Error Crítico",
+                                FontSize = 24,
+                                HorizontalTextAlignment = TextAlignment.Center,
+                                TextColor = Colors.Red
+                            },
+                            new Label
+                            {
+                                Text = errorMessage + "\n\nPor favor, cierra y reinicia la aplicación. Si el problema persiste, contacta a soporte.",
+                                FontSize = 16,
+                                HorizontalTextAlignment = TextAlignment.Center
+                            }
+                        }
+                    }
+                }
+            };
+        }
+
+        private async Task VerificarYSincronizarAsync(string triggerSource)
+        {
+            bool acquiredLock = false;
+            lock (_syncLock)
+            {
+                if (!_isSyncing)
+                {
+                    _isSyncing = true;
+                    acquiredLock = true;
+                }
+            }
+
+            if (!acquiredLock)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Sincronización ya en progreso. Omitiendo esta llamada.");
+                return;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Iniciando ciclo de sincronización completo...");
+
             try
             {
+                if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) No hay conexión a Internet. Sincronización omitida.");
+                    return;
+                }
+
                 var db = Services.GetService<DatabaseService>();
                 var oneDrive = Services.GetService<OneDriveService>();
-                if (db == null || oneDrive == null)
-                    throw new InvalidOperationException("No se pudo resolver DatabaseService o OneDriveService.");
 
-                await ComprobarYDescargarImagenesYBaseDeDatosAsync(db);
-                await oneDrive.SincronizarRegistrosAsync(db);
+                if (db == null || oneDrive == null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Error: No se pudo resolver DatabaseService o OneDriveService.");
+                    throw new InvalidOperationException("Dependencias de servicio no resueltas para la sincronización.");
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 1: Subiendo/Fusionando SyncQueue (syncqueue.json)...");
+                await db.SubirSyncQueueAsync().ConfigureAwait(false);
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 1 completado.");
+
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 2: Descargando y aplicando SyncQueue de OneDrive...");
+                await db.SincronizarDispositivoNuevoAsync().ConfigureAwait(false);
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 2 completado.");
+
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 3: Sincronizando registros (IsSynced / sync_*.json)...");
+                await oneDrive.SincronizarRegistrosAsync(db).ConfigureAwait(false);
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 3 completado.");
+
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 4: Sincronizando imágenes...");
+                await oneDrive.SincronizarImagenesAsync().ConfigureAwait(false);
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 4 completado.");
+
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Ciclo de sincronización completo finalizado exitosamente.");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[ERROR] Sincronización periódica: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) [ERROR] Durante la sincronización: {ex.Message}\n{ex.StackTrace}");
             }
             finally
             {
-                _isSyncing = false;
+                lock (_syncLock)
+                {
+                    _isSyncing = false;
+                }
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Flag _isSyncing reseteado a false.");
             }
         }
 
-        private async Task ComprobarYDescargarImagenesYBaseDeDatosAsync(DatabaseService db)
+        public async Task IntentarSubidaInmediataDeCambiosAsync(string motivo = "Cambio local inmediato")
         {
-            try
+            bool acquiredLock = false;
+            lock (_syncLock)
             {
-                var servicios = await db.ObtenerServiciosAsync(0);
-                var oneDrive = Services.GetService<OneDriveService>();
-                if (oneDrive == null)
-                    throw new InvalidOperationException("No se pudo resolver OneDriveService.");
-
-                foreach (var servicio in servicios)
+                if (!_isSyncing)
                 {
-                    await DescargarImagenSiNoExisteAsync(servicio.FotoPhUrl, "ph", oneDrive);
-                    await DescargarImagenSiNoExisteAsync(servicio.FotoConductividadUrl, "conductividad", oneDrive);
-                    await DescargarImagenSiNoExisteAsync(servicio.FotoConcentracionUrl, "concentracion", oneDrive);
-                    await DescargarImagenSiNoExisteAsync(servicio.FotoTurbidezUrl, "turbidez", oneDrive);
-                }
-
-                var dbPath = Path.Combine(FileSystem.AppDataDirectory, "clientes.db3");
-                if (!File.Exists(dbPath))
-                {
-                    await oneDrive.RestaurarBaseDeDatosAsync(dbPath);
+                    _isSyncing = true;
+                    acquiredLock = true;
                 }
             }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[ERROR] Comprobar imágenes y DB: {ex.Message}");
-            }
-        }
 
-        private async Task DescargarImagenSiNoExisteAsync(string? localPath, string tipo, OneDriveService oneDrive)
-        {
-            if (string.IsNullOrEmpty(localPath) || File.Exists(localPath))
+            if (!acquiredLock)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) Sincronización ya en progreso. Subida inmediata omitida.");
                 return;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) Iniciando intento de subida inmediata de cambios...");
 
             try
             {
-                var remotePath = $"lacasadelsueloradianteapp/{Path.GetFileName(localPath)}";
-                await oneDrive.DescargarImagenSiNoExisteAsync(localPath, remotePath);
+                if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) Sin conexión a Internet, subida inmediata omitida.");
+                    return;
+                }
+
+                var db = Services.GetService<DatabaseService>();
+                var oneDrive = Services.GetService<OneDriveService>();
+
+                if (db == null || oneDrive == null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) Error: No se pudo resolver DatabaseService o OneDriveService.");
+                    throw new InvalidOperationException("Dependencias de servicio no resueltas para la subida inmediata.");
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) Subiendo/Fusionando SyncQueue (syncqueue.json)...");
+                await db.SubirSyncQueueAsync().ConfigureAwait(false);
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) SyncQueue subida/fusionada.");
+
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) Subiendo registros locales (IsSynced / sync_*.json)...");
+                await oneDrive.SubirCambiosLocalesAsync(db).ConfigureAwait(false);
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) Registros locales subidos.");
+
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) Intento de subida inmediata de cambios finalizado.");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[ERROR] Descargar imagen {tipo}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) [ERROR] Falló la subida inmediata de cambios: {ex.Message}\n{ex.StackTrace}");
+            }
+            finally
+            {
+                lock (_syncLock)
+                {
+                    _isSyncing = false;
+                }
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) Flag _isSyncing reseteado a false.");
             }
         }
 
         protected override void OnSleep()
         {
             _syncTimer?.Stop();
+            System.Diagnostics.Debug.WriteLine("[APP LIFECYCLE] OnSleep: Temporizador de sincronización detenido.");
         }
 
         protected override void OnResume()
         {
-            _syncTimer?.Start();
+            if (_syncTimer != null && MainPage is AppShell)
+            {
+                _syncTimer.Start();
+                System.Diagnostics.Debug.WriteLine("[APP LIFECYCLE] OnResume: Temporizador de sincronización iniciado/reanudado.");
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("[APP LIFECYCLE] OnResume: Temporizador no iniciado (MainPage no es AppShell o _syncTimer es null).");
+            }
+        }
+
+        private bool _disposed = false;
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    _syncTimer?.Stop();
+                    _syncTimer?.Dispose();
+
+                    if (_connectivityChangedHandler != null)
+                    {
+                        Connectivity.ConnectivityChanged -= _connectivityChangedHandler;
+                        _connectivityChangedHandler = null;
+                    }
+                    System.Diagnostics.Debug.WriteLine("[APP LIFECYCLE] Dispose: Recursos limpiados.");
+                }
+                _disposed = true;
+            }
         }
 
         public void Dispose()
         {
-            _syncTimer?.Dispose();
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
     }
 }

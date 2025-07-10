@@ -1,13 +1,19 @@
+using Microsoft.Maui.Storage;
+using System.IO;
+
 namespace LaCasaDelSueloRadianteApp;
 
 public partial class FullScreenImagePage : ContentPage
 {
     double _scale = 1;
 
-    public FullScreenImagePage(string url)
+    public FullScreenImagePage(string fileName)
     {
         InitializeComponent();
-        BindingContext = url;
+
+        // Construye la ruta completa a la imagen local
+        var fullPath = Path.Combine(FileSystem.AppDataDirectory, fileName);
+        MainImage.Source = ImageSource.FromFile(fullPath);
     }
 
     void OnTap(object sender, TappedEventArgs e) => Navigation.PopAsync();

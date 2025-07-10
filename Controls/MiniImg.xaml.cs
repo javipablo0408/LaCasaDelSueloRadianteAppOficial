@@ -1,43 +1,70 @@
-namespace LaCasaDelSueloRadianteApp.Controls;
+using Microsoft.Maui.Controls;
+using Microsoft.Maui.Storage;
+using System.IO;
 
-
-public partial class MiniImg : ContentView
+namespace LaCasaDelSueloRadianteApp.Controls
 {
-    public static readonly BindableProperty UrlProperty =
-        BindableProperty.Create(nameof(Url), typeof(string), typeof(MiniImg),
-                                propertyChanged: OnUrlChanged);
-
-    public static readonly BindableProperty AspectProperty =
-        BindableProperty.Create(nameof(Aspect), typeof(Aspect), typeof(MiniImg), Aspect.AspectFill,
-                                propertyChanged: OnAspectChanged);
-
-    static void OnUrlChanged(BindableObject bo, object oldValue, object newValue)
+    public partial class MiniImg : ContentView
     {
-        if (bo is MiniImg m && newValue is string url)
-            m.Img.Source = url;
+        public static readonly BindableProperty UrlProperty =
+            BindableProperty.Create(
+                nameof(Url),
+                typeof(string),
+                typeof(MiniImg),
+                default(string),
+                propertyChanged: OnUrlChanged);
+
+        public string Url
+        {
+            get => (string)GetValue(UrlProperty);
+            set => SetValue(UrlProperty, value);
+        }
+
+        private static void OnUrlChanged(BindableObject bindable, object oldValue, object newValue)
+        {
+            var control = (MiniImg)bindable;
+            var fileName = newValue as string;
+
+            if (!string.IsNullOrWhiteSpace(fileName))
+            {
+                var fullPath = Path.Combine(FileSystem.AppDataDirectory, fileName);
+                control._image.Source = ImageSource.FromFile(fullPath);
+            }
+            else
+            {
+                control._image.Source = null;
+            }
+        }
+
+        private void HandleTap(object sender, EventArgs e)
+        {
+            // Si quieres propagar el evento, puedes hacerlo aquí
+            if (!string.IsNullOrWhiteSpace(Url))
+                Tapped?.Invoke(this, Url);
+        }
+
+        private readonly Image _image;
+
+        public MiniImg()
+        {
+            _image = new Image
+            {
+                Aspect = Aspect.AspectFill,
+                HeightRequest = 100,
+                WidthRequest = 100
+            };
+            Content = _image;
+
+            // Si tienes eventos de tap, agrégalos aquí
+            var tapGesture = new TapGestureRecognizer();
+            tapGesture.Tapped += (s, e) =>
+            {
+                if (!string.IsNullOrWhiteSpace(Url))
+                    Tapped?.Invoke(this, Url);
+            };
+            _image.GestureRecognizers.Add(tapGesture);
+        }
+
+        public event EventHandler<string> Tapped;
     }
-
-    static void OnAspectChanged(BindableObject bo, object oldValue, object newValue)
-    {
-        if (bo is MiniImg m && newValue is Aspect aspect)
-            m.Img.Aspect = aspect;
-    }
-
-    public string Url
-    {
-        get => (string)GetValue(UrlProperty);
-        set => SetValue(UrlProperty, value);
-    }
-
-    public Aspect Aspect
-    {
-        get => (Aspect)GetValue(AspectProperty);
-        set => SetValue(AspectProperty, value);
-    }
-
-    public event EventHandler<string>? Tapped;
-
-    public MiniImg() => InitializeComponent();
-
-    void HandleTap(object sender, TappedEventArgs e) => Tapped?.Invoke(this, Url);
 }

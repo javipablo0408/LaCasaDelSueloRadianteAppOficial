@@ -1,133 +1,47 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:local="clr-namespace:LaCasaDelSueloRadianteApp"
-             x:Class="LaCasaDelSueloRadianteApp.HistorialPage"
-             BackgroundColor="#f0f0f0">
+             x:Class="LaCasaDelSueloRadianteApp.Pages.HistorialPage"
+             Title="Historial de Servicios">
+    <VerticalStackLayout Padding="10">
+        <Label Text="Historial de Servicios"
+           FontAttributes="Bold"
+           FontSize="20"
+           HorizontalOptions="Center" />
 
-    <!-- Cabecera de la página con fondo rojo -->
-    <Grid RowDefinitions="Auto,*">
-        <Grid Grid.Row="0" BackgroundColor="#D32F2F" Padding="10">
-            <Grid ColumnDefinitions="Auto,*">
-                <Button Grid.Column="0" 
-                        Text="&#x2190;" 
-                        FontSize="24" 
-                        TextColor="White"
-                        BackgroundColor="Transparent"
-                        Margin="0,0,10,0"/>
-                <Label Grid.Column="1" 
-                       Text="Historial" 
-                       FontSize="24" 
-                       TextColor="White" 
-                       VerticalOptions="Center"/>
-            </Grid>
-        </Grid>
+        <!-- Barra de búsqueda -->
+        <SearchBar Placeholder="Buscar por nombre, dirección o teléfono"
+               Text="{Binding TextoBusqueda, Mode=TwoWay}" />
 
-        <!-- Contenido principal -->
-        <Grid Grid.Row="1" Padding="20,10" RowDefinitions="Auto,Auto,*">
+        <!-- Navegación de días -->
+        <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+            <Button Text="◀" WidthRequest="40"
+                Command="{Binding DiaAnteriorCommand}" 
+                IsEnabled="{Binding PuedeRetroceder}" />
+            <DatePicker x:Name="FechaPicker"
+                    Date="{Binding FechaSeleccionada, Mode=TwoWay}"
+                    MinimumDate="{Binding FechaMinima}"
+                    MaximumDate="{Binding FechaMaxima}" />
+            <Button Text="▶" WidthRequest="40"
+                Command="{Binding DiaSiguienteCommand}" 
+                IsEnabled="{Binding PuedeAvanzar}" />
+        </HorizontalStackLayout>
 
-            <!-- Barra de búsqueda -->
-            <Frame Grid.Row="0" 
-                   Padding="15,0" 
-                   BorderColor="#e0e0e0" 
-                   CornerRadius="20" 
-                   HasShadow="False"
-                   Margin="0,10,0,20">
-                <Grid ColumnDefinitions="Auto,*,Auto">
-                    <Image Grid.Column="0" 
-                           Source="search.png" 
-                           HeightRequest="20" 
-                           WidthRequest="20" 
-                           VerticalOptions="Center"/>
-                    <Entry Grid.Column="1" 
-                           Placeholder="Buscar" 
-                           Text="{Binding TextoBusqueda}" 
-                           VerticalOptions="Center"
-                           BackgroundColor="Transparent"/>
-                    <Button Grid.Column="2" 
-                            Text="&#x2715;" 
-                            FontSize="16" 
-                            BackgroundColor="Transparent" 
-                            TextColor="#757575"
-                            Command="{Binding LimpiarBusquedaCommand}"
-                            IsVisible="{Binding TextoBusqueda, Converter={StaticResource NotEmptyConverter}}"/>
-                </Grid>
-            </Frame>
-
-            <!-- Navegación de fechas -->
-            <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,20">
-                <Button Grid.Column="0" 
-                        Text="&#x2190;" 
-                        FontSize="28" 
-                        BackgroundColor="#D32F2F" 
-                        TextColor="White"
-                        CornerRadius="25"
-                        HeightRequest="50" 
-                        WidthRequest="50"
-                        Command="{Binding FechaAnteriorCommand}"/>
-
-                <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center">
-                    <Label Text="Fecha" 
-                           FontSize="18" 
-                           HorizontalOptions="Center"/>
-                    <Label Text="{Binding FechaMostrada, StringFormat='{0:dd/MM/yyyy}'}" 
-                           FontSize="16" 
-                           HorizontalOptions="Center"/>
-                </VerticalStackLayout>
-
-                <Button Grid.Column="2" 
-                        Text="&#x2192;" 
-                        FontSize="28" 
-                        BackgroundColor="#D32F2F" 
-                        TextColor="White"
-                        CornerRadius="25"
-                        HeightRequest="50" 
-                        WidthRequest="50"
-                        Command="{Binding FechaSiguienteCommand}"/>
-            </Grid>
-
-            <!-- Lista de servicios -->
-            <CollectionView Grid.Row="2" 
-                            ItemsSource="{Binding ServiciosFiltrados}" 
-                            SelectionMode="None"
-                            EmptyView="No hay servicios para la fecha seleccionada">
-                <CollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <Frame BackgroundColor="White" 
-                               CornerRadius="25" 
-                               Margin="0,0,0,15" 
-                               Padding="20" 
-                               HasShadow="False"
-                               BorderColor="#e0e0e0">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <StackLayout Grid.Column="0" Spacing="5">
-                                    <Label Text="{Binding TipoServicio}" 
-                                           FontSize="18" 
-                                           FontAttributes="Bold"/>
-                                    <Label Text="{Binding Fecha, StringFormat='Fecha: {0:dd/MM/yyyy}'}" 
-                                           FontSize="14" 
-                                           TextColor="#757575"/>
-                                    <Label Text="{Binding TipoInstalacion}" 
-                                           FontSize="14" 
-                                           TextColor="#757575"/>
-                                </StackLayout>
-
-                                <Button Grid.Column="1" 
-                                        Text="&#x25BC;" 
-                                        FontSize="20" 
-                                        BackgroundColor="Transparent"
-                                        BorderColor="#333333"
-                                        CornerRadius="20"
-                                        BorderWidth="1"
-                                        HeightRequest="40" 
-                                        WidthRequest="40"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type local:HistorialPage}}, Path=MostrarDetallesCommand}"
-                                        CommandParameter="{Binding}"/>
-                            </Grid>
-                        </Frame>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-        </Grid>
-    </Grid>
+        <CollectionView x:Name="ServiciosCollectionView"
+                    ItemsSource="{Binding ServiciosFiltrados}"
+                    SelectionMode="Single"
+                    SelectionChanged="ServiciosCollectionView_SelectionChanged">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Frame Margin="5" Padding="10" BorderColor="LightGray">
+                        <VerticalStackLayout>
+                            <Label Text="{Binding NombreCliente}" FontAttributes="Bold"/>
+                            <Label Text="{Binding Direccion}" />
+                            <Label Text="{Binding Telefono}" />
+                        </VerticalStackLayout>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </VerticalStackLayout>
 </ContentPage>

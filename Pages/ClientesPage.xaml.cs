@@ -45,15 +45,30 @@ public partial class ClientesPage : ContentPage
             }
         });
 
-        // Comando para eliminar un cliente
+        // Comando para eliminar un cliente y sus servicios asociados
         EliminarCommand = new Command<Cliente>(async (cliente) =>
         {
             if (cliente != null)
             {
-                bool confirm = await DisplayAlert("Confirmar", $"¿Deseas eliminar a {cliente.NombreCliente}?", "Sí", "No");
+                bool confirm = await DisplayAlert("Confirmar", $"¿Deseas eliminar a {cliente.NombreCliente} y todos sus servicios asociados?", "Sí", "No");
                 if (confirm)
                 {
+                    // 1. Obtener los servicios asociados al cliente
+                    var servicios = await _db.ObtenerServiciosAsync(cliente.Id);
+
+                    // 2. Eliminar cada servicio asociado
+                    foreach (var servicio in servicios)
+                    {
+                        await _db.EliminarServicioAsync(servicio);
+                    }
+
+                    // 3. Eliminar el cliente
                     await _db.EliminarClienteAsync(cliente);
+
+                    // 4. Subir la cola de sincronización a OneDrive (actualiza el JSON)
+                    await _db.SubirSyncQueueAsync();
+
+                    // 5. Actualizar la lista en la UI
                     Clientes.Remove(cliente);
                     FiltrarClientes();
                 }

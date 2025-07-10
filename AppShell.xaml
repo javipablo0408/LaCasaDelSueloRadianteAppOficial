@@ -2,6 +2,7 @@
 <Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
        xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
        xmlns:local="clr-namespace:LaCasaDelSueloRadianteApp"
+       xmlns:pages="clr-namespace:LaCasaDelSueloRadianteApp.Pages"
        x:Class="LaCasaDelSueloRadianteApp.AppShell">
 
     <!-- Define la barra de pestañas -->
@@ -21,14 +22,14 @@
             <ShellContent ContentTemplate="{DataTemplate local:ClientesPage}" />
         </Tab>
 
-        <!-- Página de Historial -->
-        <Tab Title="Historial" Icon="history_icon.png">
-            <ShellContent ContentTemplate="{DataTemplate local:HistorialPage}" />
-        </Tab>
-
         <!-- Página de Información -->
         <Tab Title="Información" Icon="info_icon.png">
             <ShellContent ContentTemplate="{DataTemplate local:InformacionPage}" />
         </Tab>
+
+        <Tab Title="Historial" Icon="history_icon.png">
+            <ShellContent ContentTemplate="{DataTemplate pages:HistorialPage}" />
+        </Tab>
+
     </TabBar>
 </Shell>

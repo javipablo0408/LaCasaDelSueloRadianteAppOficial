@@ -2,10 +2,19 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="LaCasaDelSueloRadianteApp.InformacionPage"
-             Title="Información">
-    <VerticalStackLayout>
-        <Label Text="Página de Información" 
-               VerticalOptions="Center" 
-               HorizontalOptions="Center" />
-    </VerticalStackLayout>
+             Title="Información del Instalador">
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="16">
+            <Label Text="Datos del Instalador" FontSize="22" FontAttributes="Bold" HorizontalOptions="Center" />
+
+            <Entry x:Name="NombreEntry" Placeholder="Nombre del instalador" />
+            <Entry x:Name="EmpresaEntry" Placeholder="Nombre de la empresa" />
+            <Entry x:Name="CifNifEntry" Placeholder="CIF / NIF" />
+            <Entry x:Name="DireccionEntry" Placeholder="Dirección" />
+            <Entry x:Name="TelefonoEntry" Placeholder="Teléfono" Keyboard="Telephone" />
+            <Entry x:Name="MailEntry" Placeholder="Email" Keyboard="Email" />
+
+            <Button Text="Guardar" Clicked="OnGuardarClicked" />
+        </VerticalStackLayout>
+    </ScrollView>
 </ContentPage>

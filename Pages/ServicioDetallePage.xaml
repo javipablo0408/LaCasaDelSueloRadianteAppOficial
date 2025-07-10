@@ -11,127 +11,182 @@
             <VerticalStackLayout Padding="20" Spacing="20">
 
                 <!-- Título: Cliente -->
-                <Label Text="Cliente" 
-                       FontAttributes="Bold" 
-                       FontSize="20" 
-                       HorizontalOptions="Center" 
+                <Label Text="Cliente"
+                       FontAttributes="Bold"
+                       FontSize="22"
+                       HorizontalOptions="Center"
                        TextColor="{DynamicResource PrimaryTextColor}" />
 
                 <!-- Datos del cliente -->
-                <Frame BackgroundColor="{DynamicResource SecondaryBackgroundColor}" 
-                       Padding="15" 
-                       HasShadow="False" 
+                <Frame BackgroundColor="{DynamicResource SecondaryBackgroundColor}"
+                       Padding="15"
+                       HasShadow="False"
                        BorderColor="Transparent">
-                    <VerticalStackLayout Spacing="10">
-                        <Label Text="{Binding Cliente.NombreCliente}" 
-                               FontSize="16" 
-                               TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Cliente.Direccion}" 
-                               FontSize="16" 
-                               TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Cliente.Telefono}" 
-                               FontSize="16" 
-                               TextColor="{DynamicResource SecondaryTextColor}" />
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="{Binding Cliente.NombreCliente}" FontSize="16" TextColor="{DynamicResource SecondaryTextColor}" />
+                        <Label Text="{Binding Cliente.Direccion}" FontSize="16" TextColor="{DynamicResource SecondaryTextColor}" />
+                        <Label Text="{Binding Cliente.Telefono}" FontSize="16" TextColor="{DynamicResource SecondaryTextColor}" />
                     </VerticalStackLayout>
                 </Frame>
 
                 <!-- Título: Instalación -->
-                <Label Text="Instalación" 
-                       FontAttributes="Bold" 
-                       FontSize="20" 
-                       HorizontalOptions="Center" 
+                <Label Text="Instalación"
+                       FontAttributes="Bold"
+                       FontSize="22"
+                       HorizontalOptions="Center"
                        TextColor="{DynamicResource PrimaryTextColor}" />
 
                 <!-- Datos del servicio -->
-                <Frame BackgroundColor="{DynamicResource SecondaryBackgroundColor}" 
-                       Padding="15" 
-                       HasShadow="False" 
+                <Frame BackgroundColor="{DynamicResource SecondaryBackgroundColor}"
+                       Padding="15"
+                       HasShadow="False"
                        BorderColor="Transparent">
-                    <VerticalStackLayout Spacing="10">
-                        <Label Text="{Binding Servicio.TipoServicio}" 
-                               FontSize="16" 
-                               TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.Fecha, StringFormat='{0:dd/MM/yyyy HH:mm}'}" 
-                               FontSize="16" 
-                               TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.TipoInstalacion}" 
-                               FontSize="16" 
-                               TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.FuenteCalor}" 
-                               FontSize="16" 
-                               TextColor="{DynamicResource SecondaryTextColor}" />
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="{Binding Servicio.Fecha, StringFormat='Fecha del servicio: {0:dd/MM/yyyy HH:mm}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
+                        <Label Text="{Binding Servicio.TipoServicio, StringFormat='Tipo de servicio: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
+                        <Label Text="{Binding Servicio.TipoInstalacion, StringFormat='Tipo de instalación: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
+                        <Label Text="{Binding Servicio.FuenteCalor, StringFormat='Fuente de calor: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
+                        <Label Text="{Binding Servicio.ProximaVisita, StringFormat='Próxima visita: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
+                        <Label Text="{Binding Servicio.AntiguedadInstalacion, StringFormat='Antigüedad instalación: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
+                        <Label Text="{Binding Servicio.AntiguedadAparatoProduccion, StringFormat='Antigüedad aparato: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
+                        <Label Text="{Binding Servicio.Modelo, StringFormat='Modelo: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
+                        <Label Text="{Binding Servicio.Marca, StringFormat='Marca: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
+                        <Label Text="{Binding Servicio.UltimaRevision, StringFormat='Última revisión: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
                     </VerticalStackLayout>
                 </Frame>
 
                 <!-- Título: Valores de la Instalación -->
-                <Label Text="Valores de la Instalación" 
-                       FontAttributes="Bold" 
-                       FontSize="20" 
-                       HorizontalOptions="Center" 
+                <Label Text="Valores de la Instalación"
+                       FontAttributes="Bold"
+                       FontSize="22"
+                       HorizontalOptions="Center"
                        TextColor="{DynamicResource PrimaryTextColor}" />
 
                 <!-- Grid para valores y fotos -->
-                <Grid ColumnDefinitions="*,Auto" 
-                      RowDefinitions="Auto,Auto,Auto,Auto" 
+                <Grid ColumnDefinitions="*,Auto"
+                      RowDefinitions="Auto,Auto,Auto,Auto"
                       RowSpacing="15">
                     <!-- Fila 1: pH -->
-                    <Label Grid.Row="0" Grid.Column="0" 
-                           Text="{Binding Servicio.ValorPh, StringFormat='pH: {0:F2}'}" 
-                           FontSize="16" 
-                           VerticalOptions="Center" 
+                    <Label Grid.Row="0" Grid.Column="0"
+                           Text="{Binding Servicio.ValorPh, StringFormat='pH: {0:F2}'}"
+                           FontSize="16"
+                           VerticalOptions="Center"
                            TextColor="{DynamicResource SecondaryTextColor}" />
-                    <ctrls:MiniImg Grid.Row="0" Grid.Column="1" 
-                                   Url="{Binding Servicio.FotoPhUrl}" 
-                                   Tapped="OnImgTapped" 
-                                   HeightRequest="100" 
-                                   WidthRequest="100" 
+                    <ctrls:MiniImg Grid.Row="0" Grid.Column="1"
+                                   Url="{Binding Servicio.FotoPhUrl}"
+                                   Tapped="OnImgTapped"
+                                   HeightRequest="100"
+                                   WidthRequest="100"
                                    VerticalOptions="Center" />
 
                     <!-- Fila 2: Conductividad -->
-                    <Label Grid.Row="1" Grid.Column="0" 
-                           Text="{Binding Servicio.ValorConductividad, StringFormat='Conductividad: {0:F2}'}" 
-                           FontSize="16" 
-                           VerticalOptions="Center" 
+                    <Label Grid.Row="1" Grid.Column="0"
+                           Text="{Binding Servicio.ValorConductividad, StringFormat='Conductividad: {0:F2}'}"
+                           FontSize="16"
+                           VerticalOptions="Center"
                            TextColor="{DynamicResource SecondaryTextColor}" />
-                    <ctrls:MiniImg Grid.Row="1" Grid.Column="1" 
-                                   Url="{Binding Servicio.FotoConductividadUrl}" 
-                                   Tapped="OnImgTapped" 
-                                   HeightRequest="100" 
-                                   WidthRequest="100" 
+                    <ctrls:MiniImg Grid.Row="1" Grid.Column="1"
+                                   Url="{Binding Servicio.FotoConductividadUrl}"
+                                   Tapped="OnImgTapped"
+                                   HeightRequest="100"
+                                   WidthRequest="100"
                                    VerticalOptions="Center" />
 
                     <!-- Fila 3: Concentración -->
-                    <Label Grid.Row="2" Grid.Column="0" 
-                           Text="{Binding Servicio.ValorConcentracion, StringFormat='Concentración: {0:F2}'}" 
-                           FontSize="16" 
-                           VerticalOptions="Center" 
+                    <Label Grid.Row="2" Grid.Column="0"
+                           Text="{Binding Servicio.ValorConcentracion, StringFormat='Concentración: {0:F2}'}"
+                           FontSize="16"
+                           VerticalOptions="Center"
                            TextColor="{DynamicResource SecondaryTextColor}" />
-                    <ctrls:MiniImg Grid.Row="2" Grid.Column="1" 
-                                   Url="{Binding Servicio.FotoConcentracionUrl}" 
-                                   Tapped="OnImgTapped" 
-                                   HeightRequest="100" 
-                                   WidthRequest="100" 
+                    <ctrls:MiniImg Grid.Row="2" Grid.Column="1"
+                                   Url="{Binding Servicio.FotoConcentracionUrl}"
+                                   Tapped="OnImgTapped"
+                                   HeightRequest="100"
+                                   WidthRequest="100"
                                    VerticalOptions="Center" />
 
                     <!-- Fila 4: Turbidez -->
-                    <Label Grid.Row="3" Grid.Column="0" 
-                           Text="{Binding Servicio.ValorTurbidez, StringFormat='Turbidez: {0:F2}'}" 
-                           FontSize="16" 
-                           VerticalOptions="Center" 
+                    <Label Grid.Row="3" Grid.Column="0"
+                           Text="{Binding Servicio.ValorTurbidez, StringFormat='Turbidez: {0}'}"
+                           FontSize="16"
+                           VerticalOptions="Center"
                            TextColor="{DynamicResource SecondaryTextColor}" />
-                    <ctrls:MiniImg Grid.Row="3" Grid.Column="1" 
-                                   Url="{Binding Servicio.FotoTurbidezUrl}" 
-                                   Tapped="OnImgTapped" 
-                                   HeightRequest="100" 
-                                   WidthRequest="100" 
+                    <ctrls:MiniImg Grid.Row="3" Grid.Column="1"
+                                   Url="{Binding Servicio.FotoTurbidezUrl}"
+                                   Tapped="OnImgTapped"
+                                   HeightRequest="100"
+                                   WidthRequest="100"
                                    VerticalOptions="Center" />
                 </Grid>
 
+                <!-- Comentarios -->
+                <Label Text="Comentarios" FontAttributes="Bold" FontSize="18" TextColor="{DynamicResource PrimaryTextColor}" />
+                <Frame BackgroundColor="{DynamicResource SecondaryBackgroundColor}" Padding="10" HasShadow="False" BorderColor="Transparent">
+                    <Label Text="{Binding Servicio.Comentarios}" FontSize="15" TextColor="{DynamicResource SecondaryTextColor}" />
+                </Frame>
+                <Label Text="Comentarios del instalador" FontAttributes="Bold" FontSize="18" TextColor="{DynamicResource PrimaryTextColor}" />
+                <Frame BackgroundColor="{DynamicResource SecondaryBackgroundColor}" Padding="10" HasShadow="False" BorderColor="Transparent">
+                    <Label Text="{Binding Servicio.ComentariosInstalador}" FontSize="15" TextColor="{DynamicResource SecondaryTextColor}" />
+                </Frame>
+
+                <!-- Fotos de instalación (hasta 10) -->
+                <Label Text="Fotos de instalación" FontAttributes="Bold" FontSize="18" TextColor="{DynamicResource PrimaryTextColor}" />
+                <ScrollView Orientation="Horizontal">
+                    <HorizontalStackLayout Spacing="10">
+                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion1Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion1Url, Converter={StaticResource NullToBoolConverter}}" />
+                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion2Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion2Url, Converter={StaticResource NullToBoolConverter}}" />
+                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion3Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion3Url, Converter={StaticResource NullToBoolConverter}}" />
+                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion4Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion4Url, Converter={StaticResource NullToBoolConverter}}" />
+                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion5Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion5Url, Converter={StaticResource NullToBoolConverter}}" />
+                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion6Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion6Url, Converter={StaticResource NullToBoolConverter}}" />
+                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion7Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion7Url, Converter={StaticResource NullToBoolConverter}}" />
+                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion8Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion8Url, Converter={StaticResource NullToBoolConverter}}" />
+                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion9Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion9Url, Converter={StaticResource NullToBoolConverter}}" />
+                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion10Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion10Url, Converter={StaticResource NullToBoolConverter}}" />
+                    </HorizontalStackLayout>
+                </ScrollView>
+
+                <!-- Equipamiento utilizado -->
+                <Label Text="Equipamiento utilizado" FontAttributes="Bold" FontSize="18" TextColor="{DynamicResource PrimaryTextColor}" />
+                <Frame BackgroundColor="{DynamicResource SecondaryBackgroundColor}" Padding="10" HasShadow="False" BorderColor="Transparent">
+                    <Label Text="{Binding Servicio.EquipamientoUtilizado, StringFormat='Equipamiento: {0}'}" FontSize="15" TextColor="{DynamicResource SecondaryTextColor}" />
+                </Frame>
+
+                <!-- Productos utilizados por categoría -->
+                <Label Text="Productos utilizados" FontAttributes="Bold" FontSize="18" TextColor="{DynamicResource PrimaryTextColor}" />
+                <Frame BackgroundColor="{DynamicResource SecondaryBackgroundColor}" Padding="10" HasShadow="False" BorderColor="Transparent">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="{Binding Servicio.InhibidoresUtilizados, StringFormat='Inhibidores: {0}'}" FontSize="15" TextColor="{DynamicResource SecondaryTextColor}" />
+                        <Label Text="{Binding Servicio.LimpiadoresUtilizados, StringFormat='Limpiadores: {0}'}" FontSize="15" TextColor="{DynamicResource SecondaryTextColor}" />
+                        <Label Text="{Binding Servicio.BiocidasUtilizados, StringFormat='Biocidas: {0}'}" FontSize="15" TextColor="{DynamicResource SecondaryTextColor}" />
+                        <Label Text="{Binding Servicio.AnticongelantesUtilizados, StringFormat='Anticongelantes: {0}'}" FontSize="15" TextColor="{DynamicResource SecondaryTextColor}" />
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Botón para editar servicio -->
+                <Button
+                    Text="Editar servicio"
+                    Clicked="OnEditarServicioClicked"
+                    BackgroundColor="{DynamicResource Primary}"
+                    TextColor="White"
+                    Margin="0,10,0,0"
+                    HorizontalOptions="Center" />
+
+                <!-- Botón para generar PDF -->
+                <Button
+                    Text="Generar informe PDF"
+                    Clicked="OnGenerarPdfClicked"
+                    BackgroundColor="{DynamicResource Primary}"
+                    TextColor="White"
+                    CornerRadius="8"
+                    HeightRequest="48"
+                    FontAttributes="Bold"/>
+
                 <!-- Barra de progreso -->
-                <ProgressBar x:Name="DownloadBar" 
-                             IsVisible="False" 
-                             HeightRequest="6" 
-                             BackgroundColor="{DynamicResource SecondaryBackgroundColor}" 
+                <ProgressBar x:Name="DownloadBar"
+                             IsVisible="False"
+                             HeightRequest="6"
+                             BackgroundColor="{DynamicResource SecondaryBackgroundColor}"
                              ProgressColor="{DynamicResource Primary}" />
             </VerticalStackLayout>
         </ScrollView>
