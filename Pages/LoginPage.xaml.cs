@@ -1,6 +1,6 @@
 using Microsoft.Maui.Controls;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Maui.Storage;              //  Para Preferences
+using Microsoft.Maui.Storage;              // Para Preferences
 using LaCasaDelSueloRadianteApp.Services;
 using System;
 
@@ -28,8 +28,14 @@ namespace LaCasaDelSueloRadianteApp
                 loadingIndicator.IsVisible = true;
                 loadingIndicator.IsRunning = true;
 
-                // Intenta silent, si falla hace interactive
-                var result = await _authService.AcquireTokenAsync();
+                // 1) Intento Silent
+                var result = await _authService.AcquireTokenSilentAsync();
+
+                // 2) Si Silent devuelve null ? Interactive
+                if (result == null)
+                {
+                    result = await _authService.AcquireTokenInteractiveAsync();
+                }
 
                 if (result != null)
                 {
@@ -39,6 +45,12 @@ namespace LaCasaDelSueloRadianteApp
                     // Navega al AppShell (pestañas)
                     var appShell = _services.GetRequiredService<AppShell>();
                     Application.Current.MainPage = appShell;
+                }
+                else
+                {
+                    await DisplayAlert("Inicio de sesión",
+                        "No se pudo obtener un token válido.",
+                        "OK");
                 }
             }
             catch (Exception ex)

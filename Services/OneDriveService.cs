@@ -62,7 +62,10 @@ namespace LaCasaDelSueloRadianteApp.Services
                 return;
             }
 
-            var authResult = await _retryPolicy.ExecuteAsync(() => _auth.AcquireTokenAsync()).ConfigureAwait(false);
+            var authResult = await _retryPolicy.ExecuteAsync(() => _auth.AcquireTokenSilentAsync()).ConfigureAwait(false);
+            if (authResult == null)
+                throw new InvalidOperationException("No se pudo obtener el token de acceso. El usuario no está autenticado.");
+
             _cachedAccessToken = authResult.AccessToken;
             _tokenExpiration = authResult.ExpiresOn;
             _logger.LogInformation("Token obtenido correctamente.");

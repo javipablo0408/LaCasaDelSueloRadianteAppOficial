@@ -42,7 +42,15 @@ namespace LaCasaDelSueloRadianteApp
             _connectivityChangedHandler = HandleConnectivityChanged;
             Connectivity.ConnectivityChanged += _connectivityChangedHandler;
 
-            MainThread.BeginInvokeOnMainThread(async () => await InitializeAsync().ConfigureAwait(false));
+            // Elimina la llamada a MainThread aquí
+            // MainThread.BeginInvokeOnMainThread(async () => await InitializeAsync().ConfigureAwait(false));
+        }
+
+        protected override void OnStart()
+        {
+            base.OnStart();
+            // Aquí el hilo principal ya está disponible
+            MainPage.Dispatcher.DispatchAsync(async () => await InitializeAsync());
         }
 
         private async void OnSyncTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
@@ -93,14 +101,15 @@ namespace LaCasaDelSueloRadianteApp
                 var token = await auth.AcquireTokenSilentAsync().ConfigureAwait(false);
                 System.Diagnostics.Debug.WriteLine($"[MSAL] Token silencioso obtenido: {(token != null)}");
 
-                if (token == null)
-                {
-                    System.Diagnostics.Debug.WriteLine("[MSAL] Intentando login interactivo...");
-                    token = await auth.AcquireTokenInteractiveAsync().ConfigureAwait(false);
-                    System.Diagnostics.Debug.WriteLine($"[MSAL] Login interactivo completado: {(token != null)}");
-                }
+                // Elimina el login interactivo automático
+                // if (token == null)
+                // {
+                //     System.Diagnostics.Debug.WriteLine("[MSAL] Intentando login interactivo...");
+                //     token = await auth.AcquireTokenInteractiveAsync().ConfigureAwait(false);
+                //     System.Diagnostics.Debug.WriteLine($"[MSAL] Login interactivo completado: {(token != null)}");
+                // }
 
-                MainThread.BeginInvokeOnMainThread(() =>
+                MainPage.Dispatcher.Dispatch(() =>
                 {
                     System.Diagnostics.Debug.WriteLine($"[MSAL] Estableciendo MainPage: {(token != null ? "AppShell" : "LoginPage")}");
                     if (token != null)
@@ -140,13 +149,28 @@ namespace LaCasaDelSueloRadianteApp
         private void HandleCriticalError(string errorMessage)
         {
             System.Diagnostics.Debug.WriteLine($"[CRITICAL ERROR HANDLER] Mensaje: {errorMessage}");
-            if (!MainThread.IsMainThread)
+            try
             {
-                MainThread.BeginInvokeOnMainThread(() => SetErrorPage(errorMessage));
+                if (MainThread.IsMainThread)
+                {
+                    SetErrorPage(errorMessage);
+                }
+                else
+                {
+                    try
+                    {
+                        MainPage.Dispatcher.Dispatch(() => SetErrorPage(errorMessage));
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[CRITICAL ERROR HANDLER] No se pudo invocar en el hilo principal: {ex.Message}");
+                        SetErrorPage(errorMessage);
+                    }
+                }
             }
-            else
+            catch (Exception ex)
             {
-                SetErrorPage(errorMessage);
+                System.Diagnostics.Debug.WriteLine($"[CRITICAL ERROR HANDLER] Falló al mostrar la página de error: {ex.Message}");
             }
         }
 

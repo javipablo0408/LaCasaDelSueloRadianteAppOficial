@@ -66,13 +66,7 @@ namespace LaCasaDelSueloRadianteApp.Services
 #endif
         }
 
-        /*--------------------------------------------------------------
-         * 3) Wrapper de compatibilidad (silent → interactive)
-         *-------------------------------------------------------------*/
-        public async Task<AuthenticationResult> AcquireTokenAsync()
-        {
-            var silent = await AcquireTokenSilentAsync();
-            return silent ?? await AcquireTokenInteractiveAsync();
-        }
+        // Elimina el método AcquireTokenAsync para evitar login interactivo automático.
+        // Si lo necesitas, úsalo solo en el botón de login, nunca en el arranque de la app.
     }
 }
