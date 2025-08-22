@@ -31,5 +31,9 @@
             <ShellContent ContentTemplate="{DataTemplate pages:HistorialPage}" />
         </Tab>
 
+        <Tab Title="Premium" Icon="premium_icon.png">
+            <ShellContent ContentTemplate="{DataTemplate pages:CodigoPremiumPage}" />
+        </Tab>
+
     </TabBar>
 </Shell>

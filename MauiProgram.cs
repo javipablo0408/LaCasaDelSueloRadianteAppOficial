@@ -43,6 +43,11 @@ public static class MauiProgram
             var logger = sp.GetRequiredService<ILogger<DatabaseService>>();
             return new DatabaseService(oneDrive, logger);
         });
+        builder.Services.AddSingleton<InformesService>(sp =>
+        {
+            var database = sp.GetRequiredService<DatabaseService>();
+            return new InformesService(database);
+        });
 
         // Páginas
         builder.Services.AddTransient<LoginPage>();

@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="LaCasaDelSueloRadianteApp.Pages.CodigoPremiumPage"
+             Title="Código Premium"
+             BackgroundColor="{DynamicResource PageBackgroundColor}">
+
+    <ScrollView>
+        <StackLayout Padding="24" Spacing="20" HorizontalOptions="FillAndExpand" VerticalOptions="StartAndExpand">
+
+            <!-- Header con icono -->
+            <StackLayout Spacing="12" HorizontalOptions="Center" Margin="0,20,0,30">
+                <Label Text="🔑" 
+                       FontSize="48" 
+                       HorizontalOptions="Center" />
+                <Label Text="Desbloquea Funciones Premium" 
+                       Style="{StaticResource PageTitle}"
+                       HorizontalOptions="Center"
+                       HorizontalTextAlignment="Center" />
+                <Label Text="Introduce tu código premium para acceder a funciones exclusivas como la generación de informes" 
+                       Style="{StaticResource BodyText}"
+                       HorizontalOptions="Center"
+                       HorizontalTextAlignment="Center"
+                       Margin="0,0,0,10" />
+            </StackLayout>
+
+            <!-- Estado actual -->
+            <Frame Style="{StaticResource CardFrame}" x:Name="EstadoFrame">
+                <StackLayout Spacing="12">
+                    <Label Text="Estado Actual" 
+                           Style="{StaticResource SectionTitle}" />
+                    
+                    <StackLayout Orientation="Horizontal" Spacing="8">
+                        <Label x:Name="EstadoIcono" 
+                               Text="❌" 
+                               FontSize="20" 
+                               VerticalOptions="Center" />
+                        <Label x:Name="EstadoTexto" 
+                               Text="Sin código premium activo"
+                               Style="{StaticResource BodyText}"
+                               VerticalOptions="Center" />
+                    </StackLayout>
+                    
+                    <Label x:Name="FechaExpiracionLabel" 
+                           Style="{StaticResource SmallText}"
+                           IsVisible="False" />
+                </StackLayout>
+            </Frame>
+
+            <!-- Formulario de código -->
+            <Frame Style="{StaticResource CardFrame}">
+                <StackLayout Spacing="16">
+                    <Label Text="Introducir Código Premium" 
+                           Style="{StaticResource SectionTitle}" />
+                    
+                    <StackLayout Spacing="12">
+                        <Label Text="Código" 
+                               Style="{StaticResource BodyText}" 
+                               FontAttributes="Bold" />
+                        <Entry x:Name="CodigoEntry" 
+                               Style="{StaticResource FormEntry}" 
+                               Placeholder="Introduce tu código aquí" 
+                               Keyboard="Default"
+                               MaxLength="50"
+                               TextTransform="Uppercase" />
+                        
+                        <Label Text="Los códigos son generados automáticamente al realizar un pedido en lacasadelsueloradiante.es" 
+                               Style="{StaticResource SmallText}"
+                               HorizontalTextAlignment="Center"
+                               Margin="0,8,0,0" />
+                    </StackLayout>
+                </StackLayout>
+            </Frame>
+
+            <!-- Mensaje de estado -->
+            <Label x:Name="MensajeLabel" 
+                   Style="{StaticResource BodyText}"
+                   HorizontalTextAlignment="Center"
+                   IsVisible="False"
+                   Margin="0,8" />
+
+            <!-- Indicador de carga -->
+            <ActivityIndicator x:Name="LoadingIndicator" 
+                               IsRunning="False" 
+                               IsVisible="False" 
+                               Color="{StaticResource Primary}" 
+                               HeightRequest="40" 
+                               HorizontalOptions="Center" />
+
+            <!-- Botones de acción -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="16" Margin="0,20,0,10">
+                <Button Text="Validar Código"
+                        Style="{StaticResource PrimaryButton}"
+                        Clicked="OnValidarCodigoClicked"
+                        x:Name="ValidarButton"
+                        Grid.Column="0" />
+                        
+                <Button Text="Verificar Estado"
+                        Style="{StaticResource SecondaryButton}"
+                        Clicked="OnVerificarEstadoClicked"
+                        x:Name="VerificarButton"
+                        Grid.Column="1" />
+            </Grid>
+
+            <!-- Información adicional -->
+            <Frame Style="{StaticResource CardFrame}" Margin="0,10,0,0">
+                <StackLayout Spacing="12">
+                    <Label Text="ℹ️ Información" 
+                           Style="{StaticResource SectionTitle}" />
+                    
+                    <StackLayout Spacing="8">
+                        <Label Text="• Los códigos tienen una validez de 30 días desde su generación"
+                               Style="{StaticResource BodyText}" />
+                        <Label Text="• Cada código solo puede usarse una vez"
+                               Style="{StaticResource BodyText}" />
+                        <Label Text="• Las funciones premium incluyen generación de informes detallados"
+                               Style="{StaticResource BodyText}" />
+                        <Label Text="• Para obtener un código, realiza un pedido en lacasadelsueloradiante.es"
+                               Style="{StaticResource BodyText}" />
+                    </StackLayout>
+                </StackLayout>
+            </Frame>
+
+            <!-- Botón para ir a la web -->
+            <Button Text="Realizar Pedido en lacasadelsueloradiante.es"
+                    Style="{StaticResource OutlineButton}"
+                    Clicked="OnIrAWebClicked"
+                    Margin="0,10,0,20" />
+
+        </StackLayout>
+    </ScrollView>
+</ContentPage>

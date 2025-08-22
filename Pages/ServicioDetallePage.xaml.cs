@@ -102,6 +102,12 @@ public partial class ServicioDetallePage : ContentPage
 
     private async void OnGenerarPdfClicked(object sender, EventArgs e)
     {
+        // Verificar si tiene acceso premium antes de generar el PDF
+        if (!await PremiumHelper.VerificarAccesoPremiumAsync(this))
+        {
+            return; // Si no tiene acceso premium, VerificarAccesoPremiumAsync ya mostró el diálogo
+        }
+
         try
         {
             var pdfBytes = GenerarInformePdf(_cliente, _servicio, _instalador);

@@ -50,7 +50,7 @@ public partial class ClientesPage : ContentPage
         {
             if (cliente != null)
             {
-                bool confirm = await DisplayAlert("Confirmar", $"¿Deseas eliminar a {cliente.NombreCliente} y todos sus servicios asociados?", "Sí", "No");
+                bool confirm = await DisplayAlert("Confirmar", $"ï¿½Deseas eliminar a {cliente.NombreCliente} y todos sus servicios asociados?", "Sï¿½", "No");
                 if (confirm)
                 {
                     // 1. Obtener los servicios asociados al cliente
@@ -65,7 +65,7 @@ public partial class ClientesPage : ContentPage
                     // 3. Eliminar el cliente
                     await _db.EliminarClienteAsync(cliente);
 
-                    // 4. Subir la cola de sincronización a OneDrive (actualiza el JSON)
+                    // 4. Subir la cola de sincronizaciï¿½n a OneDrive (actualiza el JSON)
                     await _db.SubirSyncQueueAsync();
 
                     // 5. Actualizar la lista en la UI

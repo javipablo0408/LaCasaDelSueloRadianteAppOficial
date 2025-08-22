@@ -172,9 +172,9 @@
                     Margin="0,10,0,0"
                     HorizontalOptions="Center" />
 
-                <!-- Botón para generar PDF -->
+                <!-- Botón para generar PDF Premium -->
                 <Button
-                    Text="Generar informe PDF"
+                    Text="📊 Generar Informe PDF (Premium)"
                     Clicked="OnGenerarPdfClicked"
                     BackgroundColor="{DynamicResource Primary}"
                     TextColor="White"
