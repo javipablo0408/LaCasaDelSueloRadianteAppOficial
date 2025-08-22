@@ -4,7 +4,7 @@
              xmlns:sys="clr-namespace:System;assembly=netstandard"
              xmlns:converters="clr-namespace:LaCasaDelSueloRadianteApp.Converters"
              x:Class="LaCasaDelSueloRadianteApp.AgregarPage"
-             Title="Nuevo servicio"
+             Title=""
              BackgroundColor="{DynamicResource PageBackgroundColor}">
 
     <ContentPage.Resources>
@@ -14,325 +14,639 @@
     </ContentPage.Resources>
 
     <ScrollView>
-        <StackLayout Padding="20" Spacing="18" HorizontalOptions="FillAndExpand" VerticalOptions="StartAndExpand">
+        <StackLayout Padding="16" Spacing="20" HorizontalOptions="FillAndExpand" VerticalOptions="StartAndExpand">
 
-            <!-- Cliente -->
-            <Label Text="Cliente"
-                   FontSize="18"
-                   FontAttributes="Bold"
-                   TextColor="{DynamicResource SecondaryTextColor}"
+            <!-- Header -->
+            <Label Text="Nuevo Servicio" 
+                   Style="{StaticResource PageTitle}"
                    HorizontalOptions="Center"
-                   Margin="0,0,0,8" />
+                   Margin="0,10,0,20" />
 
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Entry x:Name="NombreEntry" Grid.Column="0" Placeholder="Nombre del cliente" Unfocused="OnNombreEntryUnfocused" HorizontalOptions="FillAndExpand" Margin="0,0,8,0"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoNombreClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Entry x:Name="DireccionEntry" Grid.Column="0" Placeholder="Dirección" Unfocused="OnDireccionEntryUnfocused" HorizontalOptions="FillAndExpand" Margin="0,0,8,0"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoDireccionClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Entry x:Name="EmailEntry" Grid.Column="0" Placeholder="Email" Keyboard="Email" HorizontalOptions="FillAndExpand" Margin="0,0,8,0"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoEmailClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,8">
-                <Entry x:Name="TelefonoEntry" Grid.Column="0" Placeholder="Teléfono" Keyboard="Telephone" Unfocused="OnTelefonoEntryUnfocused" HorizontalOptions="FillAndExpand" Margin="0,0,8,0"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoTelefonoClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
+            <!-- Cliente Section -->
+            <Frame Style="{StaticResource CardFrame}">
+                <StackLayout Spacing="16">
+                    <Label Text="Información del Cliente" 
+                           Style="{StaticResource SectionTitle}" />
+                    
+                    <StackLayout Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Entry x:Name="NombreEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Nombre del cliente" 
+                                   Unfocused="OnNombreEntryUnfocused" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="i" 
+                                    Clicked="OnInfoNombreClicked" />
+                        </Grid>
+                        
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Entry x:Name="DireccionEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Dirección" 
+                                   Unfocused="OnDireccionEntryUnfocused" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="i" 
+                                    Clicked="OnInfoDireccionClicked" />
+                        </Grid>
+                        
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Entry x:Name="EmailEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Email" 
+                                   Keyboard="Email" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="i" 
+                                    Clicked="OnInfoEmailClicked" />
+                        </Grid>
+                        
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Entry x:Name="TelefonoEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Teléfono" 
+                                   Keyboard="Telephone" 
+                                   Unfocused="OnTelefonoEntryUnfocused" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="i" 
+                                    Clicked="OnInfoTelefonoClicked" />
+                        </Grid>
+                    </StackLayout>
+                </StackLayout>
+            </Frame>
 
-            <!-- Instalación -->
-            <Label Text="Instalación"
-                   FontSize="18"
-                   FontAttributes="Bold"
-                   TextColor="{DynamicResource SecondaryTextColor}"
-                   HorizontalOptions="Center"
-                   Margin="0,16,0,8" />
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Picker x:Name="TipoServicioPicker" Grid.Column="0" Title="Tipo de servicio" SelectedIndexChanged="OnTipoServicioPickerChanged" HorizontalOptions="FillAndExpand" Margin="0,0,8,0"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoTipoServicioClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
-            <Entry x:Name="TipoServicioOtroEntry" Placeholder="Especifica otro servicio" IsVisible="False" Margin="0,0,0,4"/>
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Picker x:Name="TipoInstalacionPicker" Grid.Column="0" Title="Tipo de instalación" SelectedIndexChanged="OnTipoInstalacionPickerChanged" HorizontalOptions="FillAndExpand" Margin="0,0,8,0"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoTipoInstalacionClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
-            <Entry x:Name="TipoInstalacionOtroEntry" Placeholder="Especifica otra instalación" IsVisible="False" Margin="0,0,0,4"/>
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Picker x:Name="FuenteCalorPicker" Grid.Column="0" Title="Fuente de calor" SelectedIndexChanged="OnFuenteCalorPickerChanged" HorizontalOptions="FillAndExpand" Margin="0,0,8,0"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoFuenteCalorClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
-            <Entry x:Name="FuenteCalorOtroEntry" Placeholder="Especifica otra fuente de calor" IsVisible="False" Margin="0,0,0,8"/>
+            <!-- Instalación Section -->
+            <Frame Style="{StaticResource CardFrame}">
+                <StackLayout Spacing="16">
+                    <Label Text="Instalación" 
+                           Style="{StaticResource SectionTitle}" />
+                    
+                    <StackLayout Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Picker x:Name="TipoServicioPicker" 
+                                    Style="{StaticResource FormEntry}" 
+                                    Title="Tipo de servicio" 
+                                    SelectedIndexChanged="OnTipoServicioPickerChanged" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="ℹ️" 
+                                    Clicked="OnInfoTipoServicioClicked" />
+                        </Grid>
+                        
+                        <Entry x:Name="TipoServicioOtroEntry" 
+                               Style="{StaticResource FormEntry}" 
+                               Placeholder="Especifica otro servicio" 
+                               IsVisible="False" />
+                        
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Picker x:Name="TipoInstalacionPicker" 
+                                    Style="{StaticResource FormEntry}" 
+                                    Title="Tipo de instalación" 
+                                    SelectedIndexChanged="OnTipoInstalacionPickerChanged" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="ℹ️" 
+                                    Clicked="OnInfoTipoInstalacionClicked" />
+                        </Grid>
+                        
+                        <Entry x:Name="TipoInstalacionOtroEntry" 
+                               Style="{StaticResource FormEntry}" 
+                               Placeholder="Especifica otra instalación" 
+                               IsVisible="False" />
+                        
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Picker x:Name="FuenteCalorPicker" 
+                                    Style="{StaticResource FormEntry}" 
+                                    Title="Fuente de calor" 
+                                    SelectedIndexChanged="OnFuenteCalorPickerChanged" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="ℹ️" 
+                                    Clicked="OnInfoFuenteCalorClicked" />
+                        </Grid>
+                        
+                        <Entry x:Name="FuenteCalorOtroEntry" 
+                               Style="{StaticResource FormEntry}" 
+                               Placeholder="Especifica otra fuente de calor" 
+                               IsVisible="False" />
+                    </StackLayout>
+                </StackLayout>
+            </Frame>
 
             <!-- Datos adicionales de la instalación -->
-            <Label Text="Datos adicionales de la instalación"
-                   FontSize="18"
-                   FontAttributes="Bold"
-                   TextColor="{DynamicResource SecondaryTextColor}"
-                   HorizontalOptions="Center"
-                   Margin="0,16,0,8" />
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Entry x:Name="AntiguedadInstalacionEntry" Grid.Column="0" Placeholder="Antigüedad de la instalación (años)" Keyboard="Numeric" HorizontalOptions="FillAndExpand" Margin="0,0,8,0"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoAntiguedadInstalacionClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Entry x:Name="AntiguedadAparatoProduccionEntry" Grid.Column="0" Placeholder="Antigüedad del aparato de producción (años)" Keyboard="Numeric" HorizontalOptions="FillAndExpand" Margin="0,0,8,0"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoAntiguedadAparatoClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Entry x:Name="MarcaEntry" Grid.Column="0" Placeholder="Marca del aparato de producción" HorizontalOptions="FillAndExpand" Margin="0,0,8,0"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoMarcaClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Entry x:Name="ModeloEntry" Grid.Column="0" Placeholder="Modelo del aparato de producción" HorizontalOptions="FillAndExpand" Margin="0,0,8,0"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoModeloClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,8">
-                <Entry x:Name="UltimaRevisionEntry" Grid.Column="0" Placeholder="Última revisión (años)" Keyboard="Numeric" HorizontalOptions="FillAndExpand" Margin="0,0,8,0"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoUltimaRevisionClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
+            <Frame Style="{StaticResource CardFrame}">
+                <StackLayout Spacing="16">
+                    <Label Text="Datos Adicionales de la Instalación" 
+                           Style="{StaticResource SectionTitle}" />
+                    
+                    <StackLayout Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Entry x:Name="AntiguedadInstalacionEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Antigüedad de la instalación (años)" 
+                                   Keyboard="Numeric" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="ℹ️" 
+                                    Clicked="OnInfoAntiguedadInstalacionClicked" />
+                        </Grid>
+                        
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Entry x:Name="AntiguedadAparatoProduccionEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Antigüedad del aparato de producción (años)" 
+                                   Keyboard="Numeric" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="ℹ️" 
+                                    Clicked="OnInfoAntiguedadAparatoClicked" />
+                        </Grid>
+                        
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Entry x:Name="MarcaEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Marca del aparato de producción" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="ℹ️" 
+                                    Clicked="OnInfoMarcaClicked" />
+                        </Grid>
+                        
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Entry x:Name="ModeloEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Modelo del aparato de producción" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="ℹ️" 
+                                    Clicked="OnInfoModeloClicked" />
+                        </Grid>
+                        
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Entry x:Name="UltimaRevisionEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Última revisión (años)" 
+                                   Keyboard="Numeric" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="ℹ️" 
+                                    Clicked="OnInfoUltimaRevisionClicked" />
+                        </Grid>
+                    </StackLayout>
+                </StackLayout>
+            </Frame>
 
-            <!-- Proxima Visita -->
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Label Text="Próxima visita" FontAttributes="Bold" Grid.Column="0" VerticalOptions="Center"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoProximaVisitaClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
-            <Picker x:Name="ProximaVisitaPicker" Title="Selecciona meses para la próxima visita" Margin="0,0,0,8">
-                <Picker.ItemsSource>
-                    <x:Array Type="{x:Type x:String}">
-                        <x:String>6 meses</x:String>
-                        <x:String>12 meses</x:String>
-                        <x:String>24 meses</x:String>
-                    </x:Array>
-                </Picker.ItemsSource>
-            </Picker>
+            <!-- Próxima Visita y Equipamiento -->
+            <Frame Style="{StaticResource CardFrame}">
+                <StackLayout Spacing="16">
+                    <Label Text="Configuración del Servicio" 
+                           Style="{StaticResource SectionTitle}" />
+                    
+                    <StackLayout Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label Text="Próxima visita" 
+                                   Style="{StaticResource BodyText}" 
+                                   VerticalOptions="Center" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="ℹ️" 
+                                    Clicked="OnInfoProximaVisitaClicked" />
+                        </Grid>
+                        
+                        <Picker x:Name="ProximaVisitaPicker" 
+                                Style="{StaticResource FormEntry}" 
+                                Title="Selecciona meses para la próxima visita">
+                            <Picker.ItemsSource>
+                                <x:Array Type="{x:Type x:String}">
+                                    <x:String>6 meses</x:String>
+                                    <x:String>12 meses</x:String>
+                                    <x:String>24 meses</x:String>
+                                </x:Array>
+                            </Picker.ItemsSource>
+                        </Picker>
+                        
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label Text="Equipamiento utilizado" 
+                                   Style="{StaticResource BodyText}" 
+                                   VerticalOptions="Center" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="ℹ️" 
+                                    Clicked="OnInfoEquipamientoClicked" />
+                        </Grid>
+                        
+                        <Picker x:Name="EquipamientoPicker" 
+                                Style="{StaticResource FormEntry}" 
+                                Title="Selecciona equipamiento">
+                            <Picker.ItemsSource>
+                                <x:Array Type="{x:Type x:String}">
+                                    <x:String>maquina de impulsos + desenlodadora</x:String>
+                                    <x:String>maquina desenlodadora</x:String>
+                                    <x:String>maquina de impulsos</x:String>
+                                </x:Array>
+                            </Picker.ItemsSource>
+                        </Picker>
+                    </StackLayout>
+                </StackLayout>
+            </Frame>
 
-            <!-- Equipamiento utilizado -->
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Label Text="Equipamiento utilizado" FontAttributes="Bold" Grid.Column="0" VerticalOptions="Center"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoEquipamientoClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
-            <Picker x:Name="EquipamientoPicker" Title="Selecciona equipamiento" Margin="0,0,0,8">
-                <Picker.ItemsSource>
-                    <x:Array Type="{x:Type x:String}">
-                        <x:String>maquina de impulsos + desenlodadora</x:String>
-                        <x:String>maquina desenlodadora</x:String>
-                        <x:String>maquina de impulsos</x:String>
-                    </x:Array>
-                </Picker.ItemsSource>
-            </Picker>
-
-            <!-- Fotos de instalación (hasta 10) -->
-            <Label Text="Fotos de instalación" FontAttributes="Bold" Margin="0,16,0,4"/>
-            <Button Text="Adjuntar fotos de instalación" Clicked="OnAdjuntarFotosInstalacionClicked" Margin="0,0,0,8"/>
+            <!-- Fotos de instalación -->
+            <Frame Style="{StaticResource CardFrame}">
+                <StackLayout Spacing="16">
+                    <Label Text="Fotos de Instalación" 
+                           Style="{StaticResource SectionTitle}" />
+                    
+                    <Button Text="Adjuntar Fotos de Instalación" 
+                            Style="{StaticResource SecondaryButton}" 
+                            Clicked="OnAdjuntarFotosInstalacionClicked" />
+                </StackLayout>
+            </Frame>
 
             <!-- Valores de la Instalación -->
-            <Label Text="Valores de la Instalación"
-       FontSize="18"
-       FontAttributes="Bold"
-       TextColor="{DynamicResource SecondaryTextColor}"
-       HorizontalOptions="Center"
-       Margin="0,16,0,8"/>
+            <Frame Style="{StaticResource CardFrame}">
+                <StackLayout Spacing="16">
+                    <Label Text="Valores de la Instalación"
+                           Style="{StaticResource SectionTitle}" />
 
-            <StackLayout Spacing="12" Margin="0,0,0,8">
-                <!-- pH -->
-                <Label Text="pH" FontAttributes="Bold"/>
-                <Grid ColumnDefinitions="*,Auto" RowSpacing="0">
-                    <Entry x:Name="PhEntry" Placeholder="pH" Keyboard="Numeric" HorizontalOptions="FillAndExpand"/>
-                    <Button Grid.Column="1" Text="i" Clicked="OnInfoPhClicked" BackgroundColor="Transparent" TextColor="Black" WidthRequest="36"/>
-                </Grid>
-                <HorizontalStackLayout Spacing="8">
-                    <Button Text="Adjuntar foto pH" Clicked="OnAdjuntarPhFotoClicked" FontSize="12" />
-                    <Button Text="Eliminar foto" Clicked="OnEliminarPhFotoClicked" FontSize="12" />
-                </HorizontalStackLayout>
+                    <StackLayout Spacing="16">
+                        <!-- pH -->
+                        <StackLayout Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <Label Text="pH" 
+                                       Style="{StaticResource BodyText}" 
+                                       FontAttributes="Bold" 
+                                       VerticalOptions="Center" />
+                                <Button Grid.Column="1" 
+                                        Style="{StaticResource InfoButton}" 
+                                        Text="ℹ️" 
+                                        Clicked="OnInfoPhClicked" />
+                            </Grid>
+                            
+                            <Entry x:Name="PhEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="pH" 
+                                   Keyboard="Numeric" />
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Button Text="Adjuntar Foto pH" 
+                                        Style="{StaticResource OutlineButton}" 
+                                        Clicked="OnAdjuntarPhFotoClicked" />
+                                <Button Text="Eliminar Foto" 
+                                        Style="{StaticResource OutlineButton}" 
+                                        Clicked="OnEliminarPhFotoClicked" />
+                            </StackLayout>
+                        </StackLayout>
 
-                <!-- Conductividad -->
-                <Label Text="Conductividad" FontAttributes="Bold"/>
-                <Grid ColumnDefinitions="*,Auto" RowSpacing="0">
-                    <Entry x:Name="ConductividadEntry" Placeholder="Conductividad" Keyboard="Numeric" HorizontalOptions="FillAndExpand"/>
-                    <Button Grid.Column="1" Text="i" Clicked="OnInfoConductividadClicked" BackgroundColor="Transparent" TextColor="Black" WidthRequest="36"/>
-                </Grid>
-                <HorizontalStackLayout Spacing="8">
-                    <Button Text="Adjuntar foto conductividad" Clicked="OnAdjuntarConductividadFotoClicked" FontSize="12" />
-                    <Button Text="Eliminar foto" Clicked="OnEliminarConductividadFotoClicked" FontSize="12" />
-                </HorizontalStackLayout>
+                        <!-- Conductividad -->
+                        <StackLayout Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <Label Text="Conductividad" 
+                                       Style="{StaticResource BodyText}" 
+                                       FontAttributes="Bold" 
+                                       VerticalOptions="Center" />
+                                <Button Grid.Column="1" 
+                                        Style="{StaticResource InfoButton}" 
+                                        Text="ℹ️" 
+                                        Clicked="OnInfoConductividadClicked" />
+                            </Grid>
+                            
+                            <Entry x:Name="ConductividadEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Conductividad" 
+                                   Keyboard="Numeric" />
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Button Text="Adjuntar Foto Conductividad" 
+                                        Style="{StaticResource OutlineButton}" 
+                                        Clicked="OnAdjuntarConductividadFotoClicked" />
+                                <Button Text="Eliminar Foto" 
+                                        Style="{StaticResource OutlineButton}" 
+                                        Clicked="OnEliminarConductividadFotoClicked" />
+                            </StackLayout>
+                        </StackLayout>
 
-                <!-- Concentración inhibidor -->
-                <Label Text="Concentración inhibidor" FontAttributes="Bold"/>
-                <Grid ColumnDefinitions="*,Auto" RowSpacing="0">
-                    <Entry x:Name="ConcentracionInhibidorEntry" Placeholder="Concentración inhibidor" Keyboard="Numeric" HorizontalOptions="FillAndExpand"/>
-                    <Button Grid.Column="1" Text="i" Clicked="OnInfoConcentracionClicked" BackgroundColor="Transparent" TextColor="Black" WidthRequest="36"/>
-                </Grid>
-                <HorizontalStackLayout Spacing="8">
-                    <Button Text="Adjuntar foto concentración" Clicked="OnAdjuntarConcentracionFotoClicked" FontSize="12" />
-                    <Button Text="Eliminar foto" Clicked="OnEliminarConcentracionFotoClicked" FontSize="12" />
-                </HorizontalStackLayout>
+                        <!-- Concentración inhibidor -->
+                        <StackLayout Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <Label Text="Concentración Inhibidor" 
+                                       Style="{StaticResource BodyText}" 
+                                       FontAttributes="Bold" 
+                                       VerticalOptions="Center" />
+                                <Button Grid.Column="1" 
+                                        Style="{StaticResource InfoButton}" 
+                                        Text="ℹ️" 
+                                        Clicked="OnInfoConcentracionClicked" />
+                            </Grid>
+                            
+                            <Entry x:Name="ConcentracionInhibidorEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Concentración inhibidor" 
+                                   Keyboard="Numeric" />
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Button Text="Adjuntar Foto Concentración" 
+                                        Style="{StaticResource OutlineButton}" 
+                                        Clicked="OnAdjuntarConcentracionFotoClicked" />
+                                <Button Text="Eliminar Foto" 
+                                        Style="{StaticResource OutlineButton}" 
+                                        Clicked="OnEliminarConcentracionFotoClicked" />
+                            </StackLayout>
+                        </StackLayout>
 
-                <!-- Turbidez -->
-                <Label Text="Turbidez" FontAttributes="Bold"/>
-                <Grid ColumnDefinitions="*,Auto" RowSpacing="0">
-                    <Picker x:Name="TurbidezPicker"
-                Title="Selecciona turbidez"
-                SelectedIndexChanged="OnTurbidezPickerChanged"
-                HorizontalOptions="FillAndExpand">
-                        <Picker.ItemsSource>
-                            <x:Array Type="{x:Type x:String}">
-                                <x:String>Óptimo</x:String>
-                                <x:String>Ligeramente turbio</x:String>
-                                <x:String>Medio turbio</x:String>
-                                <x:String>Muy enlodado</x:String>
-                            </x:Array>
-                        </Picker.ItemsSource>
-                    </Picker>
-                    <Button Grid.Column="1" Text="i" Clicked="OnInfoTurbidezClicked" BackgroundColor="Transparent" TextColor="Black" WidthRequest="36"/>
-                </Grid>
-                <HorizontalStackLayout Spacing="8">
-                    <Button Text="Adjuntar foto turbidez" Clicked="OnAdjuntarTurbidezFotoClicked" FontSize="12" />
-                    <Button Text="Eliminar foto" Clicked="OnEliminarTurbidezFotoClicked" FontSize="12" />
-                </HorizontalStackLayout>
-            </StackLayout>
+                        <!-- Turbidez -->
+                        <StackLayout Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <Label Text="Turbidez" 
+                                       Style="{StaticResource BodyText}" 
+                                       FontAttributes="Bold" 
+                                       VerticalOptions="Center" />
+                                <Button Grid.Column="1" 
+                                        Style="{StaticResource InfoButton}" 
+                                        Text="ℹ️" 
+                                        Clicked="OnInfoTurbidezClicked" />
+                            </Grid>
+                            
+                            <Picker x:Name="TurbidezPicker"
+                                    Style="{StaticResource FormEntry}"
+                                    Title="Selecciona turbidez"
+                                    SelectedIndexChanged="OnTurbidezPickerChanged">
+                                <Picker.ItemsSource>
+                                    <x:Array Type="{x:Type x:String}">
+                                        <x:String>Óptimo</x:String>
+                                        <x:String>Ligeramente turbio</x:String>
+                                        <x:String>Medio turbio</x:String>
+                                        <x:String>Muy enlodado</x:String>
+                                    </x:Array>
+                                </Picker.ItemsSource>
+                            </Picker>
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Button Text="Adjuntar Foto Turbidez" 
+                                        Style="{StaticResource OutlineButton}" 
+                                        Clicked="OnAdjuntarTurbidezFotoClicked" />
+                                <Button Text="Eliminar Foto" 
+                                        Style="{StaticResource OutlineButton}" 
+                                        Clicked="OnEliminarTurbidezFotoClicked" />
+                            </StackLayout>
+                        </StackLayout>
+                    </StackLayout>
+                </StackLayout>
+            </Frame>
 
             <!-- Comentarios -->
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Label Text="Comentarios" FontAttributes="Bold" Grid.Column="0" VerticalOptions="Center"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoComentariosClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
-            <Editor x:Name="ComentariosEntry" Placeholder="Comentarios generales" AutoSize="TextChanges" Margin="0,0,0,8"/>
+            <Frame Style="{StaticResource CardFrame}">
+                <StackLayout Spacing="16">
+                    <Label Text="Comentarios" 
+                           Style="{StaticResource SectionTitle}" />
+                    
+                    <StackLayout Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label Text="Comentarios Generales" 
+                                   Style="{StaticResource BodyText}" 
+                                   FontAttributes="Bold" 
+                                   VerticalOptions="Center" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="ℹ️" 
+                                    Clicked="OnInfoComentariosClicked" />
+                        </Grid>
+                        
+                        <Editor x:Name="ComentariosEntry" 
+                                Style="{StaticResource FormEntry}" 
+                                Placeholder="Comentarios generales" 
+                                AutoSize="TextChanges" 
+                                MinimumHeightRequest="80" />
 
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Label Text="Comentarios del instalador" FontAttributes="Bold" Grid.Column="0" VerticalOptions="Center"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoComentariosInstaladorClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
-            <Editor x:Name="ComentariosInstaladorEntry" Placeholder="Comentarios del instalador" AutoSize="TextChanges" Margin="0,0,0,8"/>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label Text="Comentarios del Instalador" 
+                                   Style="{StaticResource BodyText}" 
+                                   FontAttributes="Bold" 
+                                   VerticalOptions="Center" />
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource InfoButton}" 
+                                    Text="ℹ️" 
+                                    Clicked="OnInfoComentariosInstaladorClicked" />
+                        </Grid>
+                        
+                        <Editor x:Name="ComentariosInstaladorEntry" 
+                                Style="{StaticResource FormEntry}" 
+                                Placeholder="Comentarios del instalador" 
+                                AutoSize="TextChanges" 
+                                MinimumHeightRequest="80" />
+                    </StackLayout>
+                </StackLayout>
+            </Frame>
 
-            <!-- Productos utilizados por categoría -->
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,16,0,4">
-                <Label Text="Productos utilizados" FontSize="18" FontAttributes="Bold" Grid.Column="0" VerticalOptions="Center"/>
-                <Button Grid.Column="1" Text="i" WidthRequest="36" HeightRequest="36" Clicked="OnInfoProductosUtilizadosClicked" BackgroundColor="Transparent" VerticalOptions="Center" TextColor="Black"/>
-            </Grid>
+            <!-- Productos utilizados -->
+            <Frame Style="{StaticResource CardFrame}">
+                <StackLayout Spacing="16">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label Text="Productos Utilizados" 
+                               Style="{StaticResource SectionTitle}" 
+                               VerticalOptions="Center" />
+                        <Button Grid.Column="1" 
+                                Style="{StaticResource InfoButton}" 
+                                Text="ℹ️" 
+                                Clicked="OnInfoProductosUtilizadosClicked" />
+                    </Grid>
 
-            <!-- Inhibidores -->
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Picker x:Name="InhibidorPicker" Grid.Column="0" Title="Selecciona inhibidor" SelectedIndexChanged="OnInhibidorPickerChanged" HorizontalOptions="FillAndExpand" Margin="0,0,8,0">
-                    <Picker.ItemsSource>
-                        <x:Array Type="{x:Type x:String}">
-                            <x:String>Floixem I</x:String>
-                            <x:String>Fernox F1</x:String>
-                            <x:String>X100</x:String>
-                            <x:String>Otro</x:String>
-                        </x:Array>
-                    </Picker.ItemsSource>
-                </Picker>
-                <Entry x:Name="InhibidorCantidadEntry" Grid.Column="1" Placeholder="Cantidad" Keyboard="Numeric" WidthRequest="80"/>
-            </Grid>
-            <Entry x:Name="InhibidorOtroEntry" Placeholder="Especifica otro inhibidor" IsVisible="False" Margin="0,0,0,4"/>
+                    <StackLayout Spacing="16">
+                        <!-- Inhibidores -->
+                        <StackLayout Spacing="8">
+                            <Label Text="Inhibidores" 
+                                   Style="{StaticResource BodyText}" 
+                                   FontAttributes="Bold" />
+                            
+                            <Grid ColumnDefinitions="2*,1*" ColumnSpacing="12">
+                                <Picker x:Name="InhibidorPicker" 
+                                        Style="{StaticResource FormEntry}" 
+                                        Title="Selecciona inhibidor" 
+                                        SelectedIndexChanged="OnInhibidorPickerChanged">
+                                    <Picker.ItemsSource>
+                                        <x:Array Type="{x:Type x:String}">
+                                            <x:String>Floixem I</x:String>
+                                            <x:String>Fernox F1</x:String>
+                                            <x:String>X100</x:String>
+                                            <x:String>Otro</x:String>
+                                        </x:Array>
+                                    </Picker.ItemsSource>
+                                </Picker>
+                                
+                                <Entry x:Name="InhibidorCantidadEntry" 
+                                       Grid.Column="1" 
+                                       Style="{StaticResource FormEntry}" 
+                                       Placeholder="Cantidad" 
+                                       Keyboard="Numeric" />
+                            </Grid>
+                            
+                            <Entry x:Name="InhibidorOtroEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Especifica otro inhibidor" 
+                                   IsVisible="False" />
+                        </StackLayout>
 
-            <!-- Limpiadores -->
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Picker x:Name="LimpiadorPicker" Grid.Column="0" Title="Selecciona limpiador" SelectedIndexChanged="OnLimpiadorPickerChanged" HorizontalOptions="FillAndExpand" Margin="0,0,8,0">
-                    <Picker.ItemsSource>
-                        <x:Array Type="{x:Type x:String}">
-                            <x:String>Kamko Hyper-Flush</x:String>
-                            <x:String>Floixem C</x:String>
-                            <x:String>X800</x:String>
-                            <x:String>F8</x:String>
-                            <x:String>Calsanit</x:String>
-                            <x:String>Otro</x:String>
-                        </x:Array>
-                    </Picker.ItemsSource>
-                </Picker>
-                <Entry x:Name="LimpiadorCantidadEntry" Grid.Column="1" Placeholder="Cantidad" Keyboard="Numeric" WidthRequest="80"/>
-            </Grid>
-            <Entry x:Name="LimpiadorOtroEntry" Placeholder="Especifica otro limpiador" IsVisible="False" Margin="0,0,0,4"/>
+                        <!-- Limpiadores -->
+                        <StackLayout Spacing="8">
+                            <Label Text="Limpiadores" 
+                                   Style="{StaticResource BodyText}" 
+                                   FontAttributes="Bold" />
+                            
+                            <Grid ColumnDefinitions="2*,1*" ColumnSpacing="12">
+                                <Picker x:Name="LimpiadorPicker" 
+                                        Style="{StaticResource FormEntry}" 
+                                        Title="Selecciona limpiador" 
+                                        SelectedIndexChanged="OnLimpiadorPickerChanged">
+                                    <Picker.ItemsSource>
+                                        <x:Array Type="{x:Type x:String}">
+                                            <x:String>Kamko Hyper-Flush</x:String>
+                                            <x:String>Floixem C</x:String>
+                                            <x:String>X800</x:String>
+                                            <x:String>F8</x:String>
+                                            <x:String>Calsanit</x:String>
+                                            <x:String>Otro</x:String>
+                                        </x:Array>
+                                    </Picker.ItemsSource>
+                                </Picker>
+                                
+                                <Entry x:Name="LimpiadorCantidadEntry" 
+                                       Grid.Column="1" 
+                                       Style="{StaticResource FormEntry}" 
+                                       Placeholder="Cantidad" 
+                                       Keyboard="Numeric" />
+                            </Grid>
+                            
+                            <Entry x:Name="LimpiadorOtroEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Especifica otro limpiador" 
+                                   IsVisible="False" />
+                        </StackLayout>
 
-            <!-- Biocidas -->
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Picker x:Name="BiocidaPicker" Grid.Column="0" Title="Selecciona biocida" SelectedIndexChanged="OnBiocidaPickerChanged" HorizontalOptions="FillAndExpand" Margin="0,0,8,0">
-                    <Picker.ItemsSource>
-                        <x:Array Type="{x:Type x:String}">
-                            <x:String>Floixem B</x:String>
-                            <x:String>Fernox F7</x:String>
-                            <x:String>X700</x:String>
-                            <x:String>Kamko Bio</x:String>
-                            <x:String>Otro</x:String>
-                        </x:Array>
-                    </Picker.ItemsSource>
-                </Picker>
-                <Entry x:Name="BiocidaCantidadEntry" Grid.Column="1" Placeholder="Cantidad" Keyboard="Numeric" WidthRequest="80"/>
-            </Grid>
-            <Entry x:Name="BiocidaOtroEntry" Placeholder="Especifica otro biocida" IsVisible="False" Margin="0,0,0,4"/>
+                        <!-- Biocidas -->
+                        <StackLayout Spacing="8">
+                            <Label Text="Biocidas" 
+                                   Style="{StaticResource BodyText}" 
+                                   FontAttributes="Bold" />
+                            
+                            <Grid ColumnDefinitions="2*,1*" ColumnSpacing="12">
+                                <Picker x:Name="BiocidaPicker" 
+                                        Style="{StaticResource FormEntry}" 
+                                        Title="Selecciona biocida" 
+                                        SelectedIndexChanged="OnBiocidaPickerChanged">
+                                    <Picker.ItemsSource>
+                                        <x:Array Type="{x:Type x:String}">
+                                            <x:String>Floixem B</x:String>
+                                            <x:String>Fernox F7</x:String>
+                                            <x:String>X700</x:String>
+                                            <x:String>Kamko Bio</x:String>
+                                            <x:String>Otro</x:String>
+                                        </x:Array>
+                                    </Picker.ItemsSource>
+                                </Picker>
+                                
+                                <Entry x:Name="BiocidaCantidadEntry" 
+                                       Grid.Column="1" 
+                                       Style="{StaticResource FormEntry}" 
+                                       Placeholder="Cantidad" 
+                                       Keyboard="Numeric" />
+                            </Grid>
+                            
+                            <Entry x:Name="BiocidaOtroEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Especifica otro biocida" 
+                                   IsVisible="False" />
+                        </StackLayout>
 
-            <!-- Anticongelantes -->
-            <Grid ColumnDefinitions="*,Auto" RowSpacing="10" Margin="0,0,0,4">
-                <Picker x:Name="AnticongelantePicker" Grid.Column="0" Title="Selecciona anticongelante" SelectedIndexChanged="OnAnticongelantePickerChanged" HorizontalOptions="FillAndExpand" Margin="0,0,8,0">
-                    <Picker.ItemsSource>
-                        <x:Array Type="{x:Type x:String}">
-                            <x:String>Floixem</x:String>
-                            <x:String>Fernox</x:String>
-                            <x:String>Otro</x:String>
-                        </x:Array>
-                    </Picker.ItemsSource>
-                </Picker>
-                <Entry x:Name="AnticongelanteCantidadEntry" Grid.Column="1" Placeholder="Cantidad" Keyboard="Numeric" WidthRequest="80"/>
-            </Grid>
-            <Entry x:Name="AnticongelanteOtroEntry" Placeholder="Especifica otro anticongelante" IsVisible="False" Margin="0,0,0,8"/>
+                        <!-- Anticongelantes -->
+                        <StackLayout Spacing="8">
+                            <Label Text="Anticongelantes" 
+                                   Style="{StaticResource BodyText}" 
+                                   FontAttributes="Bold" />
+                            
+                            <Grid ColumnDefinitions="2*,1*" ColumnSpacing="12">
+                                <Picker x:Name="AnticongelantePicker" 
+                                        Style="{StaticResource FormEntry}" 
+                                        Title="Selecciona anticongelante" 
+                                        SelectedIndexChanged="OnAnticongelantePickerChanged">
+                                    <Picker.ItemsSource>
+                                        <x:Array Type="{x:Type x:String}">
+                                            <x:String>Floixem</x:String>
+                                            <x:String>Fernox</x:String>
+                                            <x:String>Otro</x:String>
+                                        </x:Array>
+                                    </Picker.ItemsSource>
+                                </Picker>
+                                
+                                <Entry x:Name="AnticongelanteCantidadEntry" 
+                                       Grid.Column="1" 
+                                       Style="{StaticResource FormEntry}" 
+                                       Placeholder="Cantidad" 
+                                       Keyboard="Numeric" />
+                            </Grid>
+                            
+                            <Entry x:Name="AnticongelanteOtroEntry" 
+                                   Style="{StaticResource FormEntry}" 
+                                   Placeholder="Especifica otro anticongelante" 
+                                   IsVisible="False" />
+                        </StackLayout>
+                    </StackLayout>
+                </StackLayout>
+            </Frame>
 
-            <Label Text="Vista previa de imágenes adjuntas" FontAttributes="Bold" Margin="0,20,0,8"/>
-            <CollectionView x:Name="ImagenesPreviewCollection"
-                ItemsSource="{Binding ImagenesAdjuntas}"
-                ItemsLayout="HorizontalList"
-                HeightRequest="100"
-                Margin="0,0,0,10">
-                <CollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <Frame Padding="2" Margin="2" HasShadow="False" BorderColor="#DDD" CornerRadius="8">
-                            <StackLayout>
-                                <Image Source="{Binding .}" Aspect="AspectFill" HeightRequest="90" WidthRequest="90"/>
-                                <Button Text="Eliminar"
-                                        Clicked="OnEliminarFotoInstalacionClicked"
-                                        BindingContext="{Binding .}"
-                                        FontSize="12"
-                                        Padding="0"
-                                        Margin="0,2,0,0"/>
-                            </StackLayout>
-                        </Frame>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
+            <!-- Vista previa de imágenes -->
+            <Frame Style="{StaticResource CardFrame}">
+                <StackLayout Spacing="16">
+                    <Label Text="Vista Previa de Imágenes Adjuntas" 
+                           Style="{StaticResource SectionTitle}" />
+                    
+                    <CollectionView x:Name="ImagenesPreviewCollection"
+                                    ItemsSource="{Binding ImagenesAdjuntas}"
+                                    ItemsLayout="HorizontalList"
+                                    HeightRequest="120">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame Style="{StaticResource CardFrame}" 
+                                       Margin="4" 
+                                       Padding="8">
+                                    <StackLayout Spacing="8">
+                                        <Image Source="{Binding .}" 
+                                               Aspect="AspectFill" 
+                                               HeightRequest="80" 
+                                               WidthRequest="80"
+                                               HorizontalOptions="Center" />
+                                        <Button Text="Eliminar"
+                                                Style="{StaticResource OutlineButton}"
+                                                Clicked="OnEliminarFotoInstalacionClicked"
+                                                BindingContext="{Binding .}"
+                                                FontSize="12" />
+                                    </StackLayout>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </StackLayout>
+            </Frame>
 
             <!-- Indicador de guardado -->
             <ActivityIndicator IsRunning="{Binding IsGuardando}" 
                                IsVisible="{Binding IsGuardando}" 
-                               Color="{DynamicResource Primary}" 
+                               Color="{StaticResource Primary}" 
                                HeightRequest="40" 
-                               HorizontalOptions="Center"
-                               Margin="0,10,0,10" />
+                               HorizontalOptions="Center" />
 
-            <!-- Botón Guardar -->
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="16" Margin="0,10,0,0">
-                <Button Text="Guardar"
-            BackgroundColor="{DynamicResource Primary}"
-            TextColor="White"
-            CornerRadius="20"
-            FontAttributes="Bold"
-            FontSize="18"
-            HorizontalOptions="FillAndExpand"
-            VerticalOptions="FillAndExpand"
-            Clicked="OnGuardarClicked"
-            IsEnabled="{Binding IsGuardando, Converter={StaticResource InverseBoolConverter}}"
-            Grid.Column="0"
-            Margin="0,0,0,0"/>
-                <Button Text="Resetear"
-            BackgroundColor="LightGray"
-            TextColor="Black"
-            CornerRadius="20"
-            FontAttributes="Bold"
-            FontSize="18"
-            HorizontalOptions="FillAndExpand"
-            VerticalOptions="FillAndExpand"
-            Clicked="OnResetClicked"
-            Grid.Column="1"
-            Margin="0,0,0,0"/>
+            <!-- Botones de acción -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="16" Margin="0,10,0,20">
+                <Button Text="Guardar Servicio"
+                        Style="{StaticResource PrimaryButton}"
+                        Clicked="OnGuardarClicked"
+                        IsEnabled="{Binding IsGuardando, Converter={StaticResource InverseBoolConverter}}"
+                        Grid.Column="0" />
+                        
+                <Button Text="Resetear Formulario"
+                        Style="{StaticResource SecondaryButton}"
+                        Clicked="OnResetClicked"
+                        Grid.Column="1" />
             </Grid>
 
         </StackLayout>

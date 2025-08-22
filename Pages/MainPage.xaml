@@ -2,49 +2,69 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="LaCasaDelSueloRadianteApp.MainPage"
-             Title="Tienda"
-             BackgroundColor="White">
+             Title=""
+             BackgroundColor="{StaticResource Gray50}">
     <ContentPage.Content>
-        <CollectionView ItemsSource="{Binding Productos}" 
-                        SelectionMode="None">
-            <CollectionView.ItemsLayout>
-                <GridItemsLayout Orientation="Vertical" 
-                                 Span="2" 
-                                 VerticalItemSpacing="10" 
-                                 HorizontalItemSpacing="10" />
-            </CollectionView.ItemsLayout>
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Frame Padding="10" 
-                           Margin="5" 
-                           BorderColor="LightGray" 
-                           CornerRadius="10" 
-                           HasShadow="True">
-                        <VerticalStackLayout Spacing="10">
-                            <!-- Imagen del producto -->
-                            <Image Source="{Binding ImagenUrl}" 
-                                   HeightRequest="150" 
-                                   WidthRequest="150"
-                                   Aspect="AspectFit" 
-                                   HorizontalOptions="Center" />
-                            <!-- Nombre del producto -->
-                            <Label Text="{Binding Nombre}" 
-                                   FontAttributes="Bold" 
-                                   FontSize="16" 
-                                   HorizontalOptions="Center" 
-                                   TextColor="Black" />
-                           
-                            <!-- Botón para añadir al carrito -->
-                            <Button Text="Comprar"
-                                    BackgroundColor="#E0E0E0"
-                                    TextColor="Black"
-                                    CornerRadius="5"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ComprarCommand}"
-                                    CommandParameter="{Binding}" />     
-                        </VerticalStackLayout>
-                    </Frame>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+        <Grid RowDefinitions="Auto,*">
+            <!-- Header -->
+            <VerticalStackLayout Grid.Row="0" Padding="20,16,20,0" Spacing="8">
+                <Label Text="Productos Profesionales" 
+                       Style="{StaticResource PageTitle}" />
+                <Label Text="Equipamiento especializado para instalaciones" 
+                       Style="{StaticResource BodyText}"
+                       HorizontalOptions="Center" />
+            </VerticalStackLayout>
+            
+            <!-- Products Grid -->
+            <CollectionView Grid.Row="1"
+                            ItemsSource="{Binding Productos}" 
+                            SelectionMode="None"
+                            Margin="16,8,16,16">
+                <CollectionView.ItemsLayout>
+                    <GridItemsLayout Orientation="Vertical" 
+                                     Span="2" 
+                                     VerticalItemSpacing="16" 
+                                     HorizontalItemSpacing="16" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Frame Style="{StaticResource CardFrame}" 
+                               Padding="16"
+                               Margin="0">
+                            <VerticalStackLayout Spacing="12">
+                                <!-- Imagen del producto -->
+                                <Border BackgroundColor="{StaticResource Gray100}"
+                                        StrokeShape="RoundRectangle 8"
+                                        Stroke="Transparent"
+                                        HeightRequest="120"
+                                        WidthRequest="120"
+                                        HorizontalOptions="Center">
+                                    <Image Source="{Binding ImagenUrl}" 
+                                           Aspect="AspectFit"
+                                           Margin="8" />
+                                </Border>
+                                
+                                <!-- Nombre del producto -->
+                                <Label Text="{Binding Nombre}" 
+                                       FontAttributes="Bold" 
+                                       FontSize="16" 
+                                       HorizontalOptions="Center"
+                                       HorizontalTextAlignment="Center"
+                                       MaxLines="2"
+                                       TextColor="{StaticResource Gray900}" />
+                               
+                                <!-- Botón para añadir al carrito -->
+                                <Button Text="Ver Producto"
+                                        Style="{StaticResource PrimaryButton}"
+                                        FontSize="14"
+                                        HeightRequest="40"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ComprarCommand}"
+                                        CommandParameter="{Binding}" />     
+                            </VerticalStackLayout>
+                        </Frame>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
     </ContentPage.Content>
 </ContentPage>

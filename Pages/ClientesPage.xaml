@@ -2,51 +2,62 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="LaCasaDelSueloRadianteApp.ClientesPage"
-             Title="Clientes">
+             Title=""
+             BackgroundColor="{StaticResource Gray50}">
     <ContentPage.Content>
         <Grid RowDefinitions="Auto,*">
             <!-- Encabezado -->
-            <VerticalStackLayout Grid.Row="0" Padding="10" Spacing="10">
-                <Label Text="Lista de Clientes" 
-                       FontSize="Large" 
-                       FontAttributes="Bold" 
-                       HorizontalOptions="Center" />
+            <VerticalStackLayout Grid.Row="0" Padding="20,16,20,0" Spacing="16">
+                <Label Text="Gestión de Clientes" 
+                       Style="{StaticResource PageTitle}" />
                 <SearchBar Placeholder="Buscar cliente..." 
                            Text="{Binding FiltroBusqueda}" 
-                           TextChanged="OnSearchBarTextChanged" />
+                           TextChanged="OnSearchBarTextChanged"
+                           Style="{StaticResource ProfessionalSearchBar}" />
             </VerticalStackLayout>
 
             <!-- Lista de clientes -->
             <CollectionView Grid.Row="1" x:Name="ClientesCollectionView" 
                             SelectionMode="None" 
-                            Margin="10"
+                            Margin="16,8,16,16"
                             ItemsSource="{Binding ClientesFiltrados}">
                 <CollectionView.ItemTemplate>
                     <DataTemplate>
-                        <Frame Margin="5" Padding="10" BorderColor="Gray" CornerRadius="10">
+                        <Frame Style="{StaticResource CardFrame}" Margin="0,4,0,8">
                             <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
                                 <!-- Información del cliente -->
-                                <VerticalStackLayout Grid.Column="0" Grid.RowSpan="3" Spacing="5">
-                                    <Label Text="{Binding NombreCliente}" FontAttributes="Bold" FontSize="Medium">
+                                <VerticalStackLayout Grid.Column="0" Grid.RowSpan="3" Spacing="8">
+                                    <Label Text="{Binding NombreCliente}" 
+                                           FontSize="18" 
+                                           FontAttributes="Bold"
+                                           TextColor="{StaticResource Gray900}">
                                         <Label.GestureRecognizers>
                                             <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.NavegarAServicioCommand}" 
                                                                   CommandParameter="{Binding}" />
                                         </Label.GestureRecognizers>
                                     </Label>
-                                    <Label Text="{Binding Email}" FontSize="Small" TextColor="DarkGray" />
-                                    <Label Text="{Binding Direccion}" FontSize="Small" TextColor="DarkGray" />
+                                    <Label Text="{Binding Email}" 
+                                           Style="{StaticResource BodyText}"
+                                           FontSize="14" />
+                                    <Label Text="{Binding Direccion}" 
+                                           Style="{StaticResource BodyText}"
+                                           FontSize="14" />
                                 </VerticalStackLayout>
 
                                 <!-- Botones de acción -->
-                                <VerticalStackLayout Grid.Column="1" Grid.RowSpan="3" VerticalOptions="Center" Spacing="10">
+                                <VerticalStackLayout Grid.Column="1" Grid.RowSpan="3" VerticalOptions="Center" Spacing="12">
                                     <Button Text="Editar"
-                                            BackgroundColor="LightBlue"
-                                            TextColor="White"
+                                            Style="{StaticResource SecondaryButton}"
+                                            WidthRequest="90"
+                                            FontSize="14"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditarCommand}"
                                             CommandParameter="{Binding}" />
                                     <Button Text="Eliminar"
-                                            BackgroundColor="Red"
+                                            BackgroundColor="{StaticResource Error}"
                                             TextColor="White"
+                                            FontSize="14"
+                                            WidthRequest="90"
+                                            CornerRadius="12"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EliminarCommand}"
                                             CommandParameter="{Binding}" />
                                 </VerticalStackLayout>
@@ -57,8 +68,10 @@
             </CollectionView>
 
             <!-- Indicador de carga -->
-            <ActivityIndicator IsRunning="{Binding IsCargando}" 
+            <ActivityIndicator Grid.Row="1"
+                               IsRunning="{Binding IsCargando}" 
                                IsVisible="{Binding IsCargando}" 
+                               Color="{StaticResource Primary}"
                                VerticalOptions="Center" 
                                HorizontalOptions="Center" />
         </Grid>

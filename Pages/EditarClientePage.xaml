@@ -2,16 +2,60 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="LaCasaDelSueloRadianteApp.EditarClientePage"
-             Title="Editar Cliente">
+             Title=""
+             BackgroundColor="{StaticResource Gray50}">
     <ContentPage.Content>
-        <VerticalStackLayout Padding="20" Spacing="15">
-            <Entry Text="{Binding NombreCliente}" Placeholder="Nombre" />
-            <Entry Text="{Binding Email}" Placeholder="Email" />
-            <Entry Text="{Binding Direccion}" Placeholder="Dirección" />
-            <Button Text="Guardar"
-                    BackgroundColor="Green"
-                    TextColor="White"
-                    Command="{Binding GuardarCommand}" />
-        </VerticalStackLayout>
+        <ScrollView>
+            <VerticalStackLayout Padding="20" Spacing="20">
+                <Label Text="Editar Información del Cliente" 
+                       Style="{StaticResource PageTitle}" />
+                
+                <Frame Style="{StaticResource CardFrame}">
+                    <VerticalStackLayout Spacing="16">
+                        <StackLayout>
+                            <Label Text="Nombre completo" 
+                                   Style="{StaticResource BodyText}"
+                                   FontAttributes="Bold" />
+                            <Entry Text="{Binding NombreCliente}" 
+                                   Placeholder="Ingrese el nombre completo"
+                                   Style="{StaticResource FormEntry}" />
+                        </StackLayout>
+                        
+                        <StackLayout>
+                            <Label Text="Correo electrónico" 
+                                   Style="{StaticResource BodyText}"
+                                   FontAttributes="Bold" />
+                            <Entry Text="{Binding Email}" 
+                                   Placeholder="correo@ejemplo.com"
+                                   Keyboard="Email"
+                                   Style="{StaticResource FormEntry}" />
+                        </StackLayout>
+                        
+                        <StackLayout>
+                            <Label Text="Dirección" 
+                                   Style="{StaticResource BodyText}"
+                                   FontAttributes="Bold" />
+                            <Entry Text="{Binding Direccion}" 
+                                   Placeholder="Dirección completa"
+                                   Style="{StaticResource FormEntry}" />
+                        </StackLayout>
+                        
+                        <StackLayout>
+                            <Label Text="Teléfono" 
+                                   Style="{StaticResource BodyText}"
+                                   FontAttributes="Bold" />
+                            <Entry Text="{Binding Telefono}" 
+                                   Placeholder="Número de teléfono"
+                                   Keyboard="Telephone"
+                                   Style="{StaticResource FormEntry}" />
+                        </StackLayout>
+                    </VerticalStackLayout>
+                </Frame>
+                
+                <Button Text="Guardar Cambios"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding GuardarCommand}" />
+            </VerticalStackLayout>
+        </ScrollView>
     </ContentPage.Content>
 </ContentPage>

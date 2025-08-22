@@ -2,19 +2,86 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="LaCasaDelSueloRadianteApp.InformacionPage"
-             Title="Información del Instalador">
+             Title=""
+             BackgroundColor="{AppThemeBinding Light={StaticResource Gray50}, Dark={StaticResource Gray900}}">
     <ScrollView>
-        <VerticalStackLayout Padding="20" Spacing="16">
-            <Label Text="Datos del Instalador" FontSize="22" FontAttributes="Bold" HorizontalOptions="Center" />
+        <VerticalStackLayout Padding="20" Spacing="24">
+            <Label Text="Datos del Instalador" 
+                   Style="{StaticResource PageTitle}" />
 
-            <Entry x:Name="NombreEntry" Placeholder="Nombre del instalador" />
-            <Entry x:Name="EmpresaEntry" Placeholder="Nombre de la empresa" />
-            <Entry x:Name="CifNifEntry" Placeholder="CIF / NIF" />
-            <Entry x:Name="DireccionEntry" Placeholder="Dirección" />
-            <Entry x:Name="TelefonoEntry" Placeholder="Teléfono" Keyboard="Telephone" />
-            <Entry x:Name="MailEntry" Placeholder="Email" Keyboard="Email" />
+            <Frame Style="{StaticResource CardFrame}">
+                <VerticalStackLayout Spacing="20">
+                    <Label Text="Información Personal"
+                           Style="{StaticResource SectionTitle}" />
+                    
+                    <StackLayout>
+                        <Label Text="Nombre del instalador" 
+                               Style="{StaticResource BodyText}"
+                               FontAttributes="Bold" />
+                        <Entry x:Name="NombreEntry" 
+                               Placeholder="Ingrese su nombre completo"
+                               Style="{StaticResource FormEntry}" />
+                    </StackLayout>
+                    
+                    <StackLayout>
+                        <Label Text="Nombre de la empresa" 
+                               Style="{StaticResource BodyText}"
+                               FontAttributes="Bold" />
+                        <Entry x:Name="EmpresaEntry" 
+                               Placeholder="Razón social de la empresa"
+                               Style="{StaticResource FormEntry}" />
+                    </StackLayout>
+                    
+                    <StackLayout>
+                        <Label Text="CIF / NIF" 
+                               Style="{StaticResource BodyText}"
+                               FontAttributes="Bold" />
+                        <Entry x:Name="CifNifEntry" 
+                               Placeholder="Número de identificación fiscal"
+                               Style="{StaticResource FormEntry}" />
+                    </StackLayout>
+                </VerticalStackLayout>
+            </Frame>
 
-            <Button Text="Guardar" Clicked="OnGuardarClicked" />
+            <Frame Style="{StaticResource CardFrame}">
+                <VerticalStackLayout Spacing="20">
+                    <Label Text="Información de Contacto"
+                           Style="{StaticResource SectionTitle}" />
+                    
+                    <StackLayout>
+                        <Label Text="Dirección" 
+                               Style="{StaticResource BodyText}"
+                               FontAttributes="Bold" />
+                        <Entry x:Name="DireccionEntry" 
+                               Placeholder="Dirección completa"
+                               Style="{StaticResource FormEntry}" />
+                    </StackLayout>
+                    
+                    <StackLayout>
+                        <Label Text="Teléfono" 
+                               Style="{StaticResource BodyText}"
+                               FontAttributes="Bold" />
+                        <Entry x:Name="TelefonoEntry" 
+                               Placeholder="Número de teléfono"
+                               Keyboard="Telephone"
+                               Style="{StaticResource FormEntry}" />
+                    </StackLayout>
+                    
+                    <StackLayout>
+                        <Label Text="Correo electrónico" 
+                               Style="{StaticResource BodyText}"
+                               FontAttributes="Bold" />
+                        <Entry x:Name="MailEntry" 
+                               Placeholder="correo@empresa.com"
+                               Keyboard="Email"
+                               Style="{StaticResource FormEntry}" />
+                    </StackLayout>
+                </VerticalStackLayout>
+            </Frame>
+
+            <Button Text="Guardar Información" 
+                    Style="{StaticResource PrimaryButton}"
+                    Clicked="OnGuardarClicked" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>
