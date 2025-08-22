@@ -34,17 +34,35 @@ namespace LaCasaDelSueloRadianteApp.Services
          *-------------------------------------------------------------*/
         public async Task<AuthenticationResult?> AcquireTokenSilentAsync()
         {
-            var account = (await _pca.GetAccountsAsync()).FirstOrDefault();
-
             try
             {
+                var account = (await _pca.GetAccountsAsync()).FirstOrDefault();
+
+                if (account == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("[MSAL] No hay cuentas disponibles para token silencioso");
+                    return null;
+                }
+
+                System.Diagnostics.Debug.WriteLine("[MSAL] Intentando adquirir token silencioso para cuenta existente");
                 return await _pca
                     .AcquireTokenSilent(_scopes, account)
                     .ExecuteAsync();
             }
-            catch (MsalUiRequiredException)
+            catch (MsalUiRequiredException ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[MSAL] Se requiere interacción del usuario: {ex.Message}");
                 return null; // Se requiere interacción
+            }
+            catch (MsalException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MSAL] Error MSAL en token silencioso: {ex.ErrorCode} - {ex.Message}");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MSAL] Error general en token silencioso: {ex.Message}");
+                return null;
             }
         }
 
@@ -53,17 +71,36 @@ namespace LaCasaDelSueloRadianteApp.Services
          *-------------------------------------------------------------*/
         public async Task<AuthenticationResult> AcquireTokenInteractiveAsync()
         {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("[MSAL] Iniciando adquisición de token interactivo");
 #if ANDROID
-            var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
-            return await _pca
-                .AcquireTokenInteractive(_scopes)
-                .WithParentActivityOrWindow(activity) // Especifica la actividad actual
-                .ExecuteAsync();
+                var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
+                return await _pca
+                    .AcquireTokenInteractive(_scopes)
+                    .WithParentActivityOrWindow(activity) // Especifica la actividad actual
+                    .ExecuteAsync();
 #else
-            return await _pca
-                .AcquireTokenInteractive(_scopes)
-                .ExecuteAsync();
+                return await _pca
+                    .AcquireTokenInteractive(_scopes)
+                    .ExecuteAsync();
 #endif
+            }
+            catch (MsalClientException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MSAL] Error de cliente MSAL: {ex.ErrorCode} - {ex.Message}");
+                throw new InvalidOperationException($"Error de autenticación: {ex.Message}", ex);
+            }
+            catch (MsalServiceException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MSAL] Error de servicio MSAL: {ex.ErrorCode} - {ex.Message}");
+                throw new InvalidOperationException($"Error del servicio de autenticación: {ex.Message}", ex);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MSAL] Error general en token interactivo: {ex.Message}");
+                throw new InvalidOperationException($"Error inesperado durante la autenticación: {ex.Message}", ex);
+            }
         }
 
         // Elimina el método AcquireTokenAsync para evitar login interactivo automático.

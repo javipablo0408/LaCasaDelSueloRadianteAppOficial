@@ -1,6 +1,7 @@
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Storage;
 using System.IO;
+using LaCasaDelSueloRadianteApp.Services;
 
 namespace LaCasaDelSueloRadianteApp.Controls
 {
@@ -20,15 +21,30 @@ namespace LaCasaDelSueloRadianteApp.Controls
             set => SetValue(UrlProperty, value);
         }
 
-        private static void OnUrlChanged(BindableObject bindable, object oldValue, object newValue)
+        private static async void OnUrlChanged(BindableObject bindable, object oldValue, object newValue)
         {
             var control = (MiniImg)bindable;
             var fileName = newValue as string;
 
             if (!string.IsNullOrWhiteSpace(fileName))
             {
-                var fullPath = Path.Combine(FileSystem.AppDataDirectory, fileName);
-                control._image.Source = ImageSource.FromFile(fullPath);
+                try
+                {
+                    var fullPath = Path.Combine(AppPaths.ImagesPath, fileName);
+                    if (File.Exists(fullPath))
+                    {
+                        control._image.Source = ImageSource.FromFile(fullPath);
+                    }
+                    else
+                    {
+                        control._image.Source = null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error loading image in MiniImg: {ex.Message}");
+                    control._image.Source = null;
+                }
             }
             else
             {
@@ -38,7 +54,7 @@ namespace LaCasaDelSueloRadianteApp.Controls
 
         private void HandleTap(object sender, EventArgs e)
         {
-            // Si quieres propagar el evento, puedes hacerlo aquí
+            // Si quieres propagar el evento, puedes hacerlo aquï¿½
             if (!string.IsNullOrWhiteSpace(Url))
                 Tapped?.Invoke(this, Url);
         }
@@ -55,7 +71,7 @@ namespace LaCasaDelSueloRadianteApp.Controls
             };
             Content = _image;
 
-            // Si tienes eventos de tap, agrégalos aquí
+            // Si tienes eventos de tap, agrï¿½galos aquï¿½
             var tapGesture = new TapGestureRecognizer();
             tapGesture.Tapped += (s, e) =>
             {

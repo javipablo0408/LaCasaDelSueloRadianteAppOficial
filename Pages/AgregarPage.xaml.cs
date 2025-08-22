@@ -295,9 +295,10 @@ namespace LaCasaDelSueloRadianteApp
             return null;
         }
 
-        private string? ObtenerNombreArchivo(string? rutaCompleta)
+        private string? ObtenerNombreArchivo(string? nombreArchivo)
         {
-            return string.IsNullOrEmpty(rutaCompleta) ? null : Path.GetFileName(rutaCompleta);
+            // Ya no necesitamos extraer el nombre del archivo, se devuelve directamente
+            return nombreArchivo;
         }
 
         
@@ -360,12 +361,20 @@ namespace LaCasaDelSueloRadianteApp
         private void ActualizarVistaPreviaImagenes()
         {
             ImagenesAdjuntas.Clear();
-            if (!string.IsNullOrEmpty(_phLocalPath)) ImagenesAdjuntas.Add(_phLocalPath);
-            if (!string.IsNullOrEmpty(_condLocalPath)) ImagenesAdjuntas.Add(_condLocalPath);
-            if (!string.IsNullOrEmpty(_concLocalPath)) ImagenesAdjuntas.Add(_concLocalPath);
-            if (!string.IsNullOrEmpty(_turbLocalPath)) ImagenesAdjuntas.Add(_turbLocalPath);
+            
+            // Para las vistas previas, necesitamos las rutas completas
+            if (!string.IsNullOrEmpty(_phLocalPath)) 
+                ImagenesAdjuntas.Add(Path.Combine(AppPaths.ImagesPath, _phLocalPath));
+            if (!string.IsNullOrEmpty(_condLocalPath)) 
+                ImagenesAdjuntas.Add(Path.Combine(AppPaths.ImagesPath, _condLocalPath));
+            if (!string.IsNullOrEmpty(_concLocalPath)) 
+                ImagenesAdjuntas.Add(Path.Combine(AppPaths.ImagesPath, _concLocalPath));
+            if (!string.IsNullOrEmpty(_turbLocalPath)) 
+                ImagenesAdjuntas.Add(Path.Combine(AppPaths.ImagesPath, _turbLocalPath));
+            
             foreach (var foto in _fotosInstalacion)
-                if (!string.IsNullOrEmpty(foto)) ImagenesAdjuntas.Add(foto);
+                if (!string.IsNullOrEmpty(foto)) 
+                    ImagenesAdjuntas.Add(Path.Combine(AppPaths.ImagesPath, foto));
         }
 
         private async Task<FileResult?> SeleccionarFotoAsync()
@@ -402,8 +411,15 @@ namespace LaCasaDelSueloRadianteApp
         {
             try
             {
-                var localFolder = FileSystem.AppDataDirectory;
-                var localPath = Path.Combine(localFolder, $"{slug}_{DateTime.Now:yyyyMMddHHmmss}{Path.GetExtension(file.FileName)}");
+                // Usar AppPaths.ImagesPath para que la sincronización las encuentre
+                var localFolder = AppPaths.ImagesPath;
+                
+                // Asegurar que el directorio existe
+                if (!Directory.Exists(localFolder))
+                    Directory.CreateDirectory(localFolder);
+                
+                var fileName = $"{slug}_{DateTime.Now:yyyyMMddHHmmss}{Path.GetExtension(file.FileName)}";
+                var localPath = Path.Combine(localFolder, fileName);
 
                 await using (var localStream = File.Create(localPath))
                 {
@@ -411,38 +427,69 @@ namespace LaCasaDelSueloRadianteApp
                     await fileStream.CopyToAsync(localStream);
                 }
 
-                return localPath;
+                System.Diagnostics.Debug.WriteLine($"[FOTO GUARDADA] {localPath}");
+                // Devolver solo el nombre del archivo para consistencia
+                return fileName;
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", $"No se pudo guardar la foto: {ex.Message}", "OK");
-                return null;
+                System.Diagnostics.Debug.WriteLine($"[ERROR FOTO] {ex.Message}");
+                // No usar DisplayAlert aquí, mejor lanzar la excepción y manejarla arriba
+                throw new Exception($"No se pudo guardar la foto: {ex.Message}");
             }
         }
 
         private async void OnAdjuntarPhFotoClicked(object sender, EventArgs e)
         {
-            if (await SeleccionarFotoAsync() is FileResult f)
-                _phLocalPath = await GuardarFotoLocalAsync(f, "ph");
-            ActualizarVistaPreviaImagenes();
+            try
+            {
+                if (await SeleccionarFotoAsync() is FileResult f)
+                    _phLocalPath = await GuardarFotoLocalAsync(f, "ph");
+                ActualizarVistaPreviaImagenes();
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
         }
         private async void OnAdjuntarConductividadFotoClicked(object sender, EventArgs e)
         {
-            if (await SeleccionarFotoAsync() is FileResult f)
-                _condLocalPath = await GuardarFotoLocalAsync(f, "conductividad");
-            ActualizarVistaPreviaImagenes();
+            try
+            {
+                if (await SeleccionarFotoAsync() is FileResult f)
+                    _condLocalPath = await GuardarFotoLocalAsync(f, "conductividad");
+                ActualizarVistaPreviaImagenes();
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
         }
         private async void OnAdjuntarConcentracionFotoClicked(object sender, EventArgs e)
         {
-            if (await SeleccionarFotoAsync() is FileResult f)
-                _concLocalPath = await GuardarFotoLocalAsync(f, "concentracion");
-            ActualizarVistaPreviaImagenes();
+            try
+            {
+                if (await SeleccionarFotoAsync() is FileResult f)
+                    _concLocalPath = await GuardarFotoLocalAsync(f, "concentracion");
+                ActualizarVistaPreviaImagenes();
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
         }
         private async void OnAdjuntarTurbidezFotoClicked(object sender, EventArgs e)
         {
-            if (await SeleccionarFotoAsync() is FileResult f)
-                _turbLocalPath = await GuardarFotoLocalAsync(f, "turbidez");
-            ActualizarVistaPreviaImagenes();
+            try
+            {
+                if (await SeleccionarFotoAsync() is FileResult f)
+                    _turbLocalPath = await GuardarFotoLocalAsync(f, "turbidez");
+                ActualizarVistaPreviaImagenes();
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
         }
 
         private async void OnAdjuntarFotosInstalacionClicked(object sender, EventArgs e)
@@ -570,32 +617,94 @@ namespace LaCasaDelSueloRadianteApp
             }
         }
 
-        private void EliminarFotoLocal(string? localPath)
+        private void EliminarFotoLocal(string? fileName)
         {
-            if (!string.IsNullOrEmpty(localPath) && File.Exists(localPath))
+            if (!string.IsNullOrEmpty(fileName))
             {
-                try { File.Delete(localPath); } catch { }
+                var fullPath = Path.Combine(AppPaths.ImagesPath, fileName);
+                if (File.Exists(fullPath))
+                {
+                    try { File.Delete(fullPath); } catch { }
+                }
             }
         }
 
         private string? SerializarProducto(Picker picker, Entry cantidadEntry, Entry? otroEntry = null)
         {
-            string? nombre = null;
-            if (picker.SelectedItem is string seleccionado)
+            try
             {
-                if (seleccionado.ToLower() == "otros" && otroEntry != null && !string.IsNullOrWhiteSpace(otroEntry.Text))
-                    nombre = otroEntry.Text.Trim();
-                else if (seleccionado.ToLower() != "otros")
-                    nombre = seleccionado;
+                System.Diagnostics.Debug.WriteLine("[SERIALIZAR] Iniciando serialización de producto");
+                
+                if (picker == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("[SERIALIZAR] picker es null");
+                    return null;
+                }
+                
+                if (cantidadEntry == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("[SERIALIZAR] cantidadEntry es null");
+                    return null;
+                }
+
+                string? nombre = null;
+                if (picker.SelectedItem is string seleccionado)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SERIALIZAR] Item seleccionado: {seleccionado}");
+                    
+                    if (seleccionado.ToLower() == "otros" && otroEntry != null && !string.IsNullOrWhiteSpace(otroEntry.Text))
+                    {
+                        nombre = otroEntry.Text.Trim();
+                        System.Diagnostics.Debug.WriteLine($"[SERIALIZAR] Usando texto de otroEntry: {nombre}");
+                    }
+                    else if (seleccionado.ToLower() != "otros")
+                    {
+                        nombre = seleccionado;
+                        System.Diagnostics.Debug.WriteLine($"[SERIALIZAR] Usando seleccionado: {nombre}");
+                    }
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("[SERIALIZAR] No hay item seleccionado");
+                }
+
+                string cantidadTexto = cantidadEntry.Text ?? string.Empty;
+                System.Diagnostics.Debug.WriteLine($"[SERIALIZAR] Cantidad texto: '{cantidadTexto}'");
+
+                if (!string.IsNullOrWhiteSpace(nombre) && !string.IsNullOrWhiteSpace(cantidadTexto) && int.TryParse(cantidadTexto, out var cantidad) && cantidad > 0)
+                {
+                    var resultado = $"{nombre}:{cantidad}";
+                    System.Diagnostics.Debug.WriteLine($"[SERIALIZAR] Resultado: {resultado}");
+                    return resultado;
+                }
+
+                System.Diagnostics.Debug.WriteLine("[SERIALIZAR] Producto no válido, retornando null");
+                return null;
             }
-            if (!string.IsNullOrWhiteSpace(nombre) && !string.IsNullOrWhiteSpace(cantidadEntry.Text) && int.TryParse(cantidadEntry.Text, out var cantidad) && cantidad > 0)
-                return $"{nombre}:{cantidad}";
-            return null;
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SERIALIZAR] Error: {ex.Message}");
+                return null;
+            }
         }
 
         private string SerializarCategoria(params string?[] productos)
         {
-            return string.Join(";", productos.Where(p => !string.IsNullOrWhiteSpace(p)));
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("[CATEGORIA] Serializando categoría");
+                var productosValidos = productos.Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
+                System.Diagnostics.Debug.WriteLine($"[CATEGORIA] Productos válidos encontrados: {productosValidos.Length}");
+                
+                var resultado = string.Join(";", productosValidos);
+                System.Diagnostics.Debug.WriteLine($"[CATEGORIA] Resultado: '{resultado}'");
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CATEGORIA] Error: {ex.Message}");
+                return string.Empty;
+            }
         }
 
         private DateTime FechaAhora => DateTime.Now;
@@ -607,6 +716,8 @@ namespace LaCasaDelSueloRadianteApp
 
             try
             {
+                System.Diagnostics.Debug.WriteLine("[GUARDAR] Iniciando proceso de guardado");
+
                 if (NombreEntry == null)
                 {
                     await DisplayAlert("Error", "El control NombreEntry no está inicializado.", "OK");
@@ -618,50 +729,71 @@ namespace LaCasaDelSueloRadianteApp
                     return;
                 }
 
-                Exception? error = null;
-                bool edicion = _servicioEditando != null;
+                System.Diagnostics.Debug.WriteLine("[GUARDAR] Validaciones iniciales completadas");
 
-                await Task.Run(async () =>
+                bool edicion = _servicioEditando != null;
+                System.Diagnostics.Debug.WriteLine($"[GUARDAR] Modo edición: {edicion}");
+
+                try
                 {
+                    System.Diagnostics.Debug.WriteLine("[GUARDAR] Iniciando operaciones de BD");
+                    
+                    Cliente cliente;
+                    if (_clienteSeleccionado != null)
+                    {
+                        System.Diagnostics.Debug.WriteLine("[GUARDAR] Actualizando cliente existente");
+                        _clienteSeleccionado.NombreCliente = NombreEntry.Text!.Trim();
+                        _clienteSeleccionado.Direccion = DireccionEntry.Text?.Trim();
+                        _clienteSeleccionado.Email = EmailEntry.Text?.Trim();
+                        _clienteSeleccionado.Telefono = TelefonoEntry.Text?.Trim();
+                        await _db.ActualizarClienteAsync(_clienteSeleccionado);
+                        cliente = _clienteSeleccionado;
+                        System.Diagnostics.Debug.WriteLine("[GUARDAR] Cliente actualizado");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine("[GUARDAR] Creando nuevo cliente");
+                        cliente = new Cliente
+                        {
+                            NombreCliente = NombreEntry.Text!.Trim(),
+                            Direccion = DireccionEntry.Text?.Trim(),
+                            Email = EmailEntry.Text?.Trim(),
+                            Telefono = TelefonoEntry.Text?.Trim()
+                        };
+                        cliente.Id = await _db.GuardarClienteAsync(cliente);
+                        if (cliente.Id == 0)
+                            throw new Exception("No se pudo guardar el cliente correctamente.");
+                        System.Diagnostics.Debug.WriteLine($"[GUARDAR] Cliente creado con ID: {cliente.Id}");
+                    }
+
+                    System.Diagnostics.Debug.WriteLine("[GUARDAR] Procesando datos adicionales");
+
+                    int? antiguedadInstalacion = int.TryParse(AntiguedadInstalacionEntry?.Text, out var ai) ? ai : null;
+                    int? antiguedadAparato = int.TryParse(AntiguedadAparatoProduccionEntry?.Text, out var aa) ? aa : null;
+                    string modelo = ModeloEntry?.Text?.Trim() ?? string.Empty;
+                    string marca = MarcaEntry?.Text?.Trim() ?? string.Empty;
+                    int? ultimaRevision = int.TryParse(UltimaRevisionEntry?.Text, out var ur) ? ur : null;
+                    
+                    // Validación defensiva para ProximaVisitaPicker
+                    string proximaVisita = string.Empty;
                     try
                     {
-                        Cliente cliente;
-                        if (_clienteSeleccionado != null)
-                        {
-                            _clienteSeleccionado.NombreCliente = NombreEntry.Text!.Trim();
-                            _clienteSeleccionado.Direccion = DireccionEntry.Text?.Trim();
-                            _clienteSeleccionado.Email = EmailEntry.Text?.Trim();
-                            _clienteSeleccionado.Telefono = TelefonoEntry.Text?.Trim();
-                            await _db.ActualizarClienteAsync(_clienteSeleccionado);
-                            cliente = _clienteSeleccionado;
-                        }
-                        else
-                        {
-                            cliente = new Cliente
-                            {
-                                NombreCliente = NombreEntry.Text!.Trim(),
-                                Direccion = DireccionEntry.Text?.Trim(),
-                                Email = EmailEntry.Text?.Trim(),
-                                Telefono = TelefonoEntry.Text?.Trim()
-                            };
-                            cliente.Id = await _db.GuardarClienteAsync(cliente);
-                            if (cliente.Id == 0)
-                                throw new Exception("No se pudo guardar el cliente correctamente.");
-                        }
+                        proximaVisita = ProximaVisitaPicker?.SelectedItem?.ToString() ?? string.Empty;
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[GUARDAR] Error en ProximaVisitaPicker: {ex.Message}");
+                        proximaVisita = string.Empty;
+                    }
 
-                        int? antiguedadInstalacion = int.TryParse(AntiguedadInstalacionEntry?.Text, out var ai) ? ai : null;
-                        int? antiguedadAparato = int.TryParse(AntiguedadAparatoProduccionEntry?.Text, out var aa) ? aa : null;
-                        string modelo = ModeloEntry?.Text?.Trim() ?? string.Empty;
-                        string marca = MarcaEntry?.Text?.Trim() ?? string.Empty;
-                        int? ultimaRevision = int.TryParse(UltimaRevisionEntry?.Text, out var ur) ? ur : null;
-                        string proximaVisita = ProximaVisitaPicker.SelectedItem?.ToString() ?? string.Empty;
+                    System.Diagnostics.Debug.WriteLine("[GUARDAR] Serializando productos");
+                    var inhibidor = SerializarProducto(InhibidorPicker, InhibidorCantidadEntry, InhibidorOtroEntry);
+                    var limpiador = SerializarProducto(LimpiadorPicker, LimpiadorCantidadEntry, LimpiadorOtroEntry);
+                    var biocida = SerializarProducto(BiocidaPicker, BiocidaCantidadEntry, BiocidaOtroEntry);
+                    var anticongelante = SerializarProducto(AnticongelantePicker, AnticongelanteCantidadEntry, AnticongelanteOtroEntry);
 
-                        var inhibidor = SerializarProducto(InhibidorPicker, InhibidorCantidadEntry, InhibidorOtroEntry);
-                        var limpiador = SerializarProducto(LimpiadorPicker, LimpiadorCantidadEntry, LimpiadorOtroEntry);
-                        var biocida = SerializarProducto(BiocidaPicker, BiocidaCantidadEntry, BiocidaOtroEntry);
-                        var anticongelante = SerializarProducto(AnticongelantePicker, AnticongelanteCantidadEntry, AnticongelanteOtroEntry);
-
-                        var ahora = FechaAhora;
+                    var ahora = FechaAhora;
+                    System.Diagnostics.Debug.WriteLine($"[GUARDAR] Fecha actual: {ahora}");
 
                         if (edicion)
                         {
@@ -758,7 +890,9 @@ namespace LaCasaDelSueloRadianteApp
                             servicio.UltimaRevision = ultimaRevision;
                             servicio.FechaModificacionUltimaRevision = ahora;
 
+                            System.Diagnostics.Debug.WriteLine("[GUARDAR] Actualizando servicio existente");
                             await _db.ActualizarServicioAsync(servicio);
+                            System.Diagnostics.Debug.WriteLine("[GUARDAR] Servicio actualizado exitosamente");
                         }
                         else
                         {
@@ -841,32 +975,45 @@ namespace LaCasaDelSueloRadianteApp
                                 FechaModificacionUltimaRevision = ahora
                             };
 
+                            System.Diagnostics.Debug.WriteLine("[GUARDAR] Servicio objeto creado, llamando GuardarServicioAsync");
                             var idServicio = await _db.GuardarServicioAsync(servicio);
+                            System.Diagnostics.Debug.WriteLine($"[GUARDAR] Servicio guardado con ID: {idServicio}");
+                            
                             if (idServicio > 0)
                                 servicio.Id = idServicio;
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        error = ex;
-                    }
-                });
 
-                if (error != null)
-                {
-                    await DisplayAlert("Error", $"No se pudo guardar: {error.Message}", "OK");
-                }
-                else
-                {
+                    System.Diagnostics.Debug.WriteLine("[GUARDAR] Limpiando campos");
                     LimpiarCampos();
+                    
+                    System.Diagnostics.Debug.WriteLine("[GUARDAR] Mostrando mensaje de éxito");
                     await DisplayAlert("Éxito", "Datos guardados correctamente en local.", "OK");
+                    
                     if (edicion)
+                    {
+                        System.Diagnostics.Debug.WriteLine("[GUARDAR] Navegando hacia atrás (edición)");
                         await Navigation.PopAsync();
+                    }
+                    
+                    System.Diagnostics.Debug.WriteLine("[GUARDAR] Proceso completado exitosamente");
+                }
+                catch (OperationCanceledException)
+                {
+                    System.Diagnostics.Debug.WriteLine("[GUARDAR] ERROR: OperationCanceledException - Timeout");
+                    await DisplayAlert("Timeout", "La operación tomó demasiado tiempo. Verifica tu conexión e inténtalo de nuevo.", "OK");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[GUARDAR] ERROR: Exception - {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"[GUARDAR] ERROR: StackTrace - {ex.StackTrace}");
+                    await DisplayAlert("Error", $"No se pudo guardar: {ex.Message}", "OK");
                 }
             }
             finally
             {
+                System.Diagnostics.Debug.WriteLine("[GUARDAR] En bloque finally - finalizando IsGuardando");
                 IsGuardando = false;
+                System.Diagnostics.Debug.WriteLine("[GUARDAR] Finally completado - método terminado");
             }
         }
 

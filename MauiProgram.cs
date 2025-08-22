@@ -54,38 +54,8 @@ public static class MauiProgram
         var app = builder.Build();
         App.Services = app.Services;
 
-        // Sincronización automática de imágenes y total (fire-and-forget)
-        var oneDriveService = app.Services.GetRequiredService<OneDriveService>();
-        System.Diagnostics.Debug.WriteLine("Iniciando sincronización automática de imágenes...");
-        oneDriveService.IniciarSincronizacionAutomaticaImagenes();
-
-        System.Diagnostics.Debug.WriteLine("Llamando a SincronizarTodoAsync al iniciar la app...");
-        _ = oneDriveService.SincronizarTodoAsync().ContinueWith(t =>
-        {
-            if (t.Exception != null)
-                System.Diagnostics.Debug.WriteLine("Error en SincronizarTodoAsync: " + t.Exception);
-            else
-                System.Diagnostics.Debug.WriteLine("SincronizarTodoAsync ejecutado correctamente al iniciar la app.");
-        });
-
-        // Suscripción a cambios de conectividad para sincronizar cuando vuelva la conexión
-        Connectivity.ConnectivityChanged += async (s, e) =>
-        {
-            if (e.NetworkAccess == NetworkAccess.Internet)
-            {
-                System.Diagnostics.Debug.WriteLine("Conectividad restaurada. Llamando a SincronizarTodoAsync...");
-                var oneDriveService = App.Services.GetRequiredService<OneDriveService>();
-                try
-                {
-                    await oneDriveService.SincronizarTodoAsync();
-                    System.Diagnostics.Debug.WriteLine("SincronizarTodoAsync ejecutado tras cambio de conectividad.");
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine("Error en SincronizarTodoAsync tras cambio de conectividad: " + ex);
-                }
-            }
-        };
+        
+        System.Diagnostics.Debug.WriteLine("MauiProgram: App inicializada. La sincronización se manejará desde App.xaml.cs usando SyncManagerService.");
 
         return app;
     }

@@ -364,7 +364,7 @@ public partial class ServicioDetallePage : ContentPage
         {
             if (!string.IsNullOrWhiteSpace(url))
             {
-                var localPath = Path.Combine(FileSystem.AppDataDirectory, url);
+                var localPath = Path.Combine(AppPaths.ImagesPath, url);
                 if (File.Exists(localPath))
                     fotosValores.Add((titulo, localPath));
             }
@@ -421,7 +421,7 @@ public partial class ServicioDetallePage : ContentPage
                 var nombreArchivo = prop.GetValue(servicio) as string;
                 if (!string.IsNullOrWhiteSpace(nombreArchivo))
                 {
-                    var localPath = Path.Combine(FileSystem.AppDataDirectory, nombreArchivo);
+                    var localPath = Path.Combine(AppPaths.ImagesPath, nombreArchivo);
                     if (File.Exists(localPath))
                     {
                         fotosInstalacion.Add(($"Instalación {i}", localPath));

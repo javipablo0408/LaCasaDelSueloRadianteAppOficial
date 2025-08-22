@@ -801,6 +801,10 @@ namespace LaCasaDelSueloRadianteApp.Services
             }
         }
 
+        /// <summary>
+        /// Guarda o actualiza los datos del instalador. Solo puede haber un instalador en la aplicación.
+        /// Si no existe ningún instalador, lo inserta. Si ya existe uno, actualiza sus datos.
+        /// </summary>
         public async Task GuardarInstaladorAsync(Instalador instalador, CancellationToken ct = default, bool semaphoreAlreadyAcquired = false)
         {
             if (instalador == null) throw new ArgumentNullException(nameof(instalador));
@@ -813,6 +817,8 @@ namespace LaCasaDelSueloRadianteApp.Services
             try
             {
                 await EnsureConnectionAsync(ct).ConfigureAwait(false);
+                
+                // Solo puede haber un instalador en toda la aplicación
                 var existente = await _conn.Table<Instalador>().FirstOrDefaultAsync().ConfigureAwait(false);
                 string tipoCambio;
 
@@ -820,15 +826,27 @@ namespace LaCasaDelSueloRadianteApp.Services
                 {
                     if (existente == null)
                     {
+                        instalador.IsSynced = false; // Marcar como no sincronizado
                         await _conn.InsertAsync(instalador).ConfigureAwait(false);
                         tipoCambio = "Insert";
+                        _logger.LogInformation("Instalador insertado con ID: {InstaladorId}", instalador.Id);
                     }
                     else
                     {
                         instalador.Id = existente.Id;
+                        instalador.IsSynced = false; // Marcar como no sincronizado
                         await _conn.UpdateAsync(instalador).ConfigureAwait(false);
                         tipoCambio = "Update";
+                        _logger.LogInformation("Instalador actualizado con ID: {InstaladorId}", instalador.Id);
                     }
+                    
+                    // Verificar que el ID sea válido antes de registrar en SyncQueue
+                    if (instalador.Id <= 0)
+                    {
+                        _logger.LogError("El ID del instalador es inválido: {InstaladorId}", instalador.Id);
+                        throw new InvalidOperationException($"Error al guardar instalador: ID inválido ({instalador.Id})");
+                    }
+                    
                     await RegistrarEnSyncQueueAsync("Instalador", tipoCambio, instalador.Id.ToString(), instalador, ct).ConfigureAwait(false);
                 }
                 catch (SQLiteException ex) when (ex.Message.Contains("readonly"))
@@ -847,10 +865,92 @@ namespace LaCasaDelSueloRadianteApp.Services
             await SubirUltimaVersionBaseDeDatosAsync(ct).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// Obtiene los datos del instalador. Solo puede haber un instalador en la aplicación.
+        /// </summary>
+        /// <returns>Los datos del instalador si existe, null si no se ha configurado ningún instalador</returns>
         public async Task<Instalador?> ObtenerInstaladorAsync(CancellationToken ct = default)
         {
             await EnsureConnectionAsync(ct).ConfigureAwait(false);
             return await _conn.Table<Instalador>().FirstOrDefaultAsync().ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Obtiene los datos del instalador si no han sido sincronizados.
+        /// </summary>
+        public async Task<List<Instalador>> ObtenerInstaladoresNoSincronizadosAsync(CancellationToken ct = default)
+        {
+            await EnsureConnectionAsync(ct).ConfigureAwait(false);
+            return await _conn.Table<Instalador>().Where(i => !i.IsSynced).ToListAsync().ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Marca los instaladores como sincronizados.
+        /// </summary>
+        public async Task MarcarInstaladoresComoSincronizadosAsync(IEnumerable<int> ids, CancellationToken ct = default)
+        {
+            if (ids == null || !ids.Any()) return;
+            await _dbSemaphore.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                await EnsureConnectionAsync(ct).ConfigureAwait(false);
+                foreach (var id in ids)
+                {
+                    var instalador = await _conn.FindAsync<Instalador>(id).ConfigureAwait(false);
+                    if (instalador != null)
+                    {
+                        instalador.IsSynced = true;
+                        await _conn.UpdateAsync(instalador).ConfigureAwait(false);
+                    }
+                }
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
+        }
+
+        /// <summary>
+        /// Inserta o actualiza un instalador desde sincronización remota.
+        /// </summary>
+        public async Task InsertarOActualizarInstaladorAsync(Instalador instalador, CancellationToken ct = default)
+        {
+            if (instalador == null) throw new ArgumentNullException(nameof(instalador));
+            
+            await _dbSemaphore.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                await EnsureConnectionAsync(ct).ConfigureAwait(false);
+                
+                // Solo puede haber un instalador, así que siempre actualizamos el existente o insertamos si no hay
+                var existente = await _conn.Table<Instalador>().FirstOrDefaultAsync().ConfigureAwait(false);
+                
+                if (existente == null)
+                {
+                    // No hay instalador, insertamos el nuevo
+                    instalador.IsSynced = true; // Marcamos como sincronizado porque viene de sincronización
+                    await _conn.InsertAsync(instalador).ConfigureAwait(false);
+                    _logger.LogInformation("Instalador insertado desde sincronización remota con ID: {InstaladorId}", instalador.Id);
+                }
+                else
+                {
+                    // Ya existe un instalador, actualizamos sus datos
+                    existente.Nombre = instalador.Nombre;
+                    existente.Empresa = instalador.Empresa;
+                    existente.CifNif = instalador.CifNif;
+                    existente.Direccion = instalador.Direccion;
+                    existente.Telefono = instalador.Telefono;
+                    existente.Mail = instalador.Mail;
+                    existente.IsSynced = true; // Marcamos como sincronizado
+                    
+                    await _conn.UpdateAsync(existente).ConfigureAwait(false);
+                    _logger.LogInformation("Instalador actualizado desde sincronización remota con ID: {InstaladorId}", existente.Id);
+                }
+            }
+            finally
+            {
+                _dbSemaphore.Release();
+            }
         }
     }
 }

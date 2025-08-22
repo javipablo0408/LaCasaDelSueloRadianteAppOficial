@@ -1,6 +1,7 @@
 ﻿using System.Net.Http;
 using System.IO;
 using Microsoft.Maui.Storage;
+using LaCasaDelSueloRadianteApp;
 
 namespace LaCasaDelSueloRadianteApp.Services;
 
@@ -29,7 +30,11 @@ public sealed class ImageService : IImageService
     public async Task<string?> DownloadAndSaveAsync(string url, IProgress<double>? progress = null)
     {
         var fileName = Path.GetFileName(new Uri(url).LocalPath);
-        var localPath = Path.Combine(FileSystem.AppDataDirectory, fileName);
+        var localPath = Path.Combine(AppPaths.ImagesPath, fileName);
+
+        // Asegurar que el directorio existe
+        if (!Directory.Exists(AppPaths.ImagesPath))
+            Directory.CreateDirectory(AppPaths.ImagesPath);
 
         if (File.Exists(localPath))
             return fileName;
@@ -59,6 +64,6 @@ public sealed class ImageService : IImageService
 
     public string GetLocalPath(string fileName)
     {
-        return Path.Combine(FileSystem.AppDataDirectory, fileName);
+        return Path.Combine(AppPaths.ImagesPath, fileName);
     }
 }

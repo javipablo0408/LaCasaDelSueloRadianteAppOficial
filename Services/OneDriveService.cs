@@ -23,7 +23,7 @@ namespace LaCasaDelSueloRadianteApp.Services
         private readonly MauiMsalAuthService _auth;
         private readonly HttpClient _http;
         private readonly ILogger<OneDriveService> _logger;
-        private readonly string localImagesPath = AppPaths.BasePath;
+        private readonly string localImagesPath = AppPaths.ImagesPath; // Usar ImagesPath en lugar de BasePath
         private Timer _syncTimerImages;
 
         private const string RemoteFolder = "lacasadelsueloradianteapp";
@@ -73,7 +73,7 @@ namespace LaCasaDelSueloRadianteApp.Services
                 new AuthenticationHeaderValue("Bearer", _cachedAccessToken);
         }
 
-        // --- Sincronización de imágenes ---
+        // --- Sincronización de imágenes mejorada ---
         public async Task SincronizarImagenesAsync(CancellationToken ct = default)
         {
             if (!HayConexion())
@@ -82,52 +82,277 @@ namespace LaCasaDelSueloRadianteApp.Services
                 return;
             }
 
-            await AddAuthHeaderAsync().ConfigureAwait(false);
-            _logger.LogInformation("Inicio de sincronización de imágenes (comparación local vs OneDrive).");
+            try
+            {
+                await AddAuthHeaderAsync().ConfigureAwait(false);
+                _logger.LogInformation("Inicio de sincronización bilateral de imágenes.");
 
-            if (!Directory.Exists(localImagesPath))
-                Directory.CreateDirectory(localImagesPath);
+                if (!Directory.Exists(localImagesPath))
+                {
+                    Directory.CreateDirectory(localImagesPath);
+                    _logger.LogInformation($"Directorio de imágenes creado: {localImagesPath}");
+                }
 
+                var imageExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg" };
+
+                // 1. Obtener lista de archivos locales con metadatos
+                _logger.LogInformation($"Escaneando archivos locales en: {localImagesPath}");
+                var localFiles = Directory.GetFiles(localImagesPath)
+                    .Where(file => imageExtensions.Contains(Path.GetExtension(file)))
+                    .Select(filePath => new LocalFileInfo
+                    {
+                        Name = Path.GetFileName(filePath),
+                        FullPath = filePath,
+                        LastModified = File.GetLastWriteTimeUtc(filePath),
+                        Size = new FileInfo(filePath).Length
+                    })
+                    .ToDictionary(f => f.Name, StringComparer.OrdinalIgnoreCase);
+
+                _logger.LogInformation($"Archivos locales encontrados: {localFiles.Count}");
+                foreach (var file in localFiles.Values)
+                {
+                    _logger.LogDebug($"Local: {file.Name} - {file.LastModified:yyyy-MM-dd HH:mm:ss} - {file.Size} bytes");
+                }
+
+                // 2. Obtener lista de archivos remotos con metadatos
+                _logger.LogInformation("Consultando archivos remotos en OneDrive...");
+                var remoteFiles = await ObtenerListaImagenesRemotas(ct);
+                
+                _logger.LogInformation($"Archivos remotos encontrados: {remoteFiles.Count}");
+                foreach (var file in remoteFiles.Values)
+                {
+                    _logger.LogDebug($"Remoto: {file.Name} - {file.LastModified:yyyy-MM-dd HH:mm:ss} - {file.Size} bytes");
+                }
+
+                // 3. Determinar acciones de sincronización
+                _logger.LogInformation("Determinando acciones de sincronización...");
+                var accionesSinc = DeterminarAccionesSincronizacion(localFiles, remoteFiles);
+                
+                _logger.LogInformation($"Acciones determinadas: {accionesSinc.Count}");
+                foreach (var accion in accionesSinc)
+                {
+                    _logger.LogInformation($"Acción: {accion.Accion} - {accion.Archivo} - {accion.Motivo}");
+                }
+
+                // 4. Ejecutar acciones de sincronización
+                if (accionesSinc.Any())
+                {
+                    _logger.LogInformation("Ejecutando acciones de sincronización...");
+                    await EjecutarAccionesSincronizacion(accionesSinc, ct);
+                }
+                else
+                {
+                    _logger.LogInformation("No hay acciones de sincronización pendientes.");
+                }
+
+                _logger.LogInformation($"Sincronización de imágenes completada. Descargadas: {accionesSinc.Count(a => a.Accion == AccionSincronizacion.Descargar)}, Subidas: {accionesSinc.Count(a => a.Accion == AccionSincronizacion.Subir)}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error durante la sincronización de imágenes");
+                throw;
+            }
+        }
+
+        private async Task<Dictionary<string, RemoteFileInfo>> ObtenerListaImagenesRemotas(CancellationToken ct)
+        {
+            var remoteFiles = new Dictionary<string, RemoteFileInfo>(StringComparer.OrdinalIgnoreCase);
             var imageExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg" };
 
-            // 1. Lista de imágenes locales
-            var localFiles = Directory.GetFiles(localImagesPath)
-                .Where(file => imageExtensions.Contains(Path.GetExtension(file)))
-                .Select(Path.GetFileName)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            // 2. Lista de imágenes en OneDrive
-            string folderUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{RemoteFolder}:/children";
-            var response = await _http.GetAsync(folderUrl, ct).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
+            try
             {
-                _logger.LogWarning("No se pudo listar archivos de imágenes remotas.");
+                string folderUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{RemoteFolder}:/children";
+                _logger.LogInformation($"Consultando OneDrive: {folderUrl}");
+                
+                var response = await _http.GetAsync(folderUrl, ct).ConfigureAwait(false);
+                _logger.LogInformation($"Respuesta de OneDrive: {response.StatusCode}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                    _logger.LogDebug($"JSON respuesta: {json.Substring(0, Math.Min(200, json.Length))}...");
+                    
+                    var items = JsonSerializer.Deserialize<OneDriveItemsResponse>(json);
+
+                    if (items?.value != null)
+                    {
+                        _logger.LogInformation($"Items encontrados en OneDrive: {items.value.Count}");
+                        
+                        foreach (var item in items.value)
+                        {
+                            if (item.name != null)
+                            {
+                                _logger.LogDebug($"Examinando archivo: {item.name}");
+                                
+                                if (imageExtensions.Contains(Path.GetExtension(item.name)))
+                                {
+                                    var fileInfo = new RemoteFileInfo
+                                    {
+                                        Name = item.name,
+                                        LastModified = (item.lastModifiedDateTime ?? DateTimeOffset.MinValue).UtcDateTime,
+                                        Size = item.size ?? 0
+                                    };
+                                    
+                                    remoteFiles[item.name] = fileInfo;
+                                    _logger.LogDebug($"Imagen remota agregada: {item.name} - {fileInfo.LastModified:yyyy-MM-dd HH:mm:ss}");
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("La respuesta de OneDrive no contiene items válidos");
+                    }
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                    _logger.LogWarning($"No se pudo obtener lista de archivos remotos: {response.StatusCode} - {response.ReasonPhrase}. Error: {errorContent}");
+                }
+            }
+            catch (JsonException jsonEx)
+            {
+                _logger.LogError(jsonEx, "Error de deserialización JSON al obtener lista de imágenes remotas");
+            }
+            catch (HttpRequestException httpEx)
+            {
+                _logger.LogError(httpEx, "Error de red al obtener lista de imágenes remotas");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error general al obtener lista de imágenes remotas");
+            }
+
+            _logger.LogInformation($"Total de imágenes remotas procesadas: {remoteFiles.Count}");
+            return remoteFiles;
+        }
+
+        private List<AccionSincronizacionImagen> DeterminarAccionesSincronizacion(
+            Dictionary<string, LocalFileInfo> localFiles,
+            Dictionary<string, RemoteFileInfo> remoteFiles)
+        {
+            var acciones = new List<AccionSincronizacionImagen>();
+
+            // Procesar archivos que existen en ambos lados
+            foreach (var localFile in localFiles.Values)
+            {
+                if (remoteFiles.TryGetValue(localFile.Name, out var remoteFile))
+                {
+                    // Archivo existe en ambos lados - determinar cuál es más reciente
+                    if (localFile.LastModified > remoteFile.LastModified.AddSeconds(1)) // Margen de 1 segundo para diferencias de precisión
+                    {
+                        acciones.Add(new AccionSincronizacionImagen
+                        {
+                            Archivo = localFile.Name,
+                            Accion = AccionSincronizacion.Subir,
+                            RutaLocal = localFile.FullPath,
+                            Motivo = $"Archivo local más reciente ({localFile.LastModified:yyyy-MM-dd HH:mm:ss} vs {remoteFile.LastModified:yyyy-MM-dd HH:mm:ss})"
+                        });
+                    }
+                    else if (remoteFile.LastModified > localFile.LastModified.AddSeconds(1))
+                    {
+                        acciones.Add(new AccionSincronizacionImagen
+                        {
+                            Archivo = localFile.Name,
+                            Accion = AccionSincronizacion.Descargar,
+                            RutaLocal = localFile.FullPath,
+                            Motivo = $"Archivo remoto más reciente ({remoteFile.LastModified:yyyy-MM-dd HH:mm:ss} vs {localFile.LastModified:yyyy-MM-dd HH:mm:ss})"
+                        });
+                    }
+                    // Si las fechas son iguales (dentro del margen), no hacer nada
+                }
+                else
+                {
+                    // Archivo solo existe localmente - subir
+                    acciones.Add(new AccionSincronizacionImagen
+                    {
+                        Archivo = localFile.Name,
+                        Accion = AccionSincronizacion.Subir,
+                        RutaLocal = localFile.FullPath,
+                        Motivo = "Archivo solo existe localmente"
+                    });
+                }
+            }
+
+            // Procesar archivos que solo existen remotamente
+            foreach (var remoteFile in remoteFiles.Values)
+            {
+                if (!localFiles.ContainsKey(remoteFile.Name))
+                {
+                    acciones.Add(new AccionSincronizacionImagen
+                    {
+                        Archivo = remoteFile.Name,
+                        Accion = AccionSincronizacion.Descargar,
+                        RutaLocal = Path.Combine(localImagesPath, remoteFile.Name),
+                        Motivo = "Archivo solo existe remotamente"
+                    });
+                }
+            }
+
+            return acciones;
+        }
+
+        private async Task EjecutarAccionesSincronizacion(List<AccionSincronizacionImagen> acciones, CancellationToken ct)
+        {
+            foreach (var accion in acciones)
+            {
+                try
+                {
+                    _logger.LogInformation($"[SYNC IMG] {accion.Accion}: {accion.Archivo} - {accion.Motivo}");
+
+                    switch (accion.Accion)
+                    {
+                        case AccionSincronizacion.Subir:
+                            await UploadFileOptimizedAsync($"{RemoteFolder}/{accion.Archivo}", accion.RutaLocal);
+                            break;
+
+                        case AccionSincronizacion.Descargar:
+                            await DescargarImagenParaSincronizacionAsync(accion.RutaLocal, $"{RemoteFolder}/{accion.Archivo}");
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error al ejecutar acción {accion.Accion} para {accion.Archivo}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Descarga una imagen para sincronización, sobrescribiendo si ya existe (bilateral sync)
+        /// </summary>
+        private async Task DescargarImagenParaSincronizacionAsync(string localFullPath, string remotePath)
+        {
+            _logger.LogInformation("[SYNC IMG DOWNLOAD] Descargando: {0} desde {1}", localFullPath, remotePath);
+
+            if (string.IsNullOrEmpty(localFullPath) || string.IsNullOrEmpty(remotePath))
+            {
+                _logger.LogWarning("[SYNC IMG DOWNLOAD] Ruta local o remota vacía.");
                 return;
             }
-            var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            var items = JsonSerializer.Deserialize<OneDriveItemsResponse>(json);
-            var remoteFiles = items?.value
-                .Where(i => i.name != null && imageExtensions.Contains(Path.GetExtension(i.name)))
-                .Select(i => i.name)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>();
 
-            // 3. Descargar imágenes que están en OneDrive pero no localmente
-            foreach (var remoteFile in remoteFiles.Except(localFiles))
+            await AddAuthHeaderAsync().ConfigureAwait(false);
+            string requestUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath}:/content";
+            _logger.LogInformation("[SYNC IMG DOWNLOAD] URL de descarga: {0}", requestUrl);
+
+            var response = await _http.GetAsync(requestUrl).ConfigureAwait(false);
+            _logger.LogInformation("[SYNC IMG DOWNLOAD] Código de estado HTTP: {0}", response.StatusCode);
+
+            if (!response.IsSuccessStatusCode)
             {
-                var localPath = Path.Combine(localImagesPath, remoteFile);
-                _logger.LogInformation("[SYNC] Descargando imagen faltante localmente: {0}", remoteFile);
-                await DescargarImagenSiNoExisteAsync(localPath, $"{RemoteFolder}/{remoteFile}");
+                _logger.LogWarning("[SYNC IMG DOWNLOAD] Imagen no encontrada en OneDrive: {0} - Código: {1} - Mensaje: {2}", remotePath, response.StatusCode, response.ReasonPhrase);
+                return;
             }
 
-            // 4. Subir imágenes que están localmente pero no en OneDrive
-            foreach (var localFile in localFiles.Except(remoteFiles))
-            {
-                var localPath = Path.Combine(localImagesPath, localFile);
-                _logger.LogInformation("[SYNC] Subiendo imagen faltante en OneDrive: {0}", localFile);
-                await UploadFileOptimizedAsync($"{RemoteFolder}/{localFile}", localPath);
-            }
+            string? directorio = Path.GetDirectoryName(localFullPath);
+            if (!string.IsNullOrEmpty(directorio) && !Directory.Exists(directorio))
+                Directory.CreateDirectory(directorio);
 
-            _logger.LogInformation("Sincronización de imágenes finalizada.");
+            // Sobrescribir el archivo si ya existe (para sincronización bilateral)
+            using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            using var fileStream = new FileStream(localFullPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, true);
+            await stream.CopyToAsync(fileStream).ConfigureAwait(false);
+            _logger.LogInformation("[SYNC IMG DOWNLOAD] Imagen descargada y guardada en: {0}", localFullPath);
         }
 
         // --- Descarga de archivos genérica ---
@@ -229,7 +454,12 @@ namespace LaCasaDelSueloRadianteApp.Services
 
             if (string.IsNullOrEmpty(remotePath))
                 throw new ArgumentException("La ruta remota es inválida.", nameof(remotePath));
+            
             await AddAuthHeaderAsync().ConfigureAwait(false);
+            
+            // Asegurar que la carpeta existe antes de subir el archivo
+            await EnsureFolderExistsAsync(remotePath).ConfigureAwait(false);
+            
             string requestUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{remotePath}:/content";
             using var streamContent = new StreamContent(content);
             streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
@@ -237,6 +467,104 @@ namespace LaCasaDelSueloRadianteApp.Services
             if (!response.IsSuccessStatusCode)
                 throw new Exception($"Error al subir archivo: {response.ReasonPhrase}");
             _logger.LogInformation("Archivo subido a {0}.", remotePath);
+        }
+
+        /// <summary>
+        /// Asegura que la carpeta especificada en la ruta existe, creándola si es necesario
+        /// </summary>
+        private async Task EnsureFolderExistsAsync(string remotePath)
+        {
+            if (string.IsNullOrEmpty(remotePath))
+                return;
+
+            // Extraer la ruta de la carpeta (todo excepto el nombre del archivo)
+            var pathParts = remotePath.Split('/');
+            if (pathParts.Length <= 1)
+                return; // No hay carpetas que crear
+
+            var folderPath = string.Join("/", pathParts.Take(pathParts.Length - 1));
+            
+            try
+            {
+                // Verificar si la carpeta ya existe
+                string checkUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{folderPath}";
+                var checkResponse = await _http.GetAsync(checkUrl).ConfigureAwait(false);
+                
+                if (checkResponse.IsSuccessStatusCode)
+                {
+                    _logger.LogInformation("[EnsureFolderExists] Carpeta ya existe: {0}", folderPath);
+                    return; // La carpeta ya existe
+                }
+                
+                // Crear la carpeta si no existe
+                await CreateFolderAsync(folderPath).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[EnsureFolderExists] Error al verificar/crear carpeta: {0}", folderPath);
+                // Continuar con la subida del archivo - podría funcionar si la carpeta ya existe
+            }
+        }
+
+        /// <summary>
+        /// Crea una carpeta en OneDrive (incluyendo carpetas padre si no existen)
+        /// </summary>
+        private async Task CreateFolderAsync(string folderPath)
+        {
+            var pathParts = folderPath.Split('/');
+            var currentPath = "";
+
+            // Crear carpetas una por una, desde la raíz hacia abajo
+            foreach (var folderName in pathParts)
+            {
+                if (string.IsNullOrEmpty(folderName))
+                    continue;
+
+                var parentPath = string.IsNullOrEmpty(currentPath) ? "root" : $"root:/{currentPath}";
+                currentPath = string.IsNullOrEmpty(currentPath) ? folderName : $"{currentPath}/{folderName}";
+
+                try
+                {
+                    // Verificar si esta carpeta específica ya existe
+                    string checkUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{currentPath}";
+                    var checkResponse = await _http.GetAsync(checkUrl).ConfigureAwait(false);
+                    
+                    if (checkResponse.IsSuccessStatusCode)
+                    {
+                        _logger.LogInformation("[CreateFolder] Carpeta ya existe: {0}", currentPath);
+                        continue; // Esta carpeta ya existe, continuar con la siguiente
+                    }
+
+                    // Crear la carpeta
+                    string createUrl = $"https://graph.microsoft.com/v1.0/me/drive/{parentPath}/children";
+                    var folderData = new Dictionary<string, object>
+                    {
+                        { "name", folderName },
+                        { "folder", new { } },
+                        { "@microsoft.graph.conflictBehavior", "rename" }
+                    };
+
+                    var jsonContent = JsonSerializer.Serialize(folderData);
+                    using var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+                    
+                    var createResponse = await _http.PostAsync(createUrl, content).ConfigureAwait(false);
+                    
+                    if (createResponse.IsSuccessStatusCode)
+                    {
+                        _logger.LogInformation("[CreateFolder] Carpeta creada exitosamente: {0}", currentPath);
+                    }
+                    else
+                    {
+                        var errorContent = await createResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        _logger.LogWarning("[CreateFolder] No se pudo crear la carpeta {0}: {1} - {2}", 
+                            currentPath, createResponse.StatusCode, errorContent);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[CreateFolder] Error al crear carpeta: {0}", currentPath);
+                }
+            }
         }
 
         public async Task UploadLargeFileAsync(string remotePath, Stream content)
@@ -284,20 +612,23 @@ namespace LaCasaDelSueloRadianteApp.Services
         {
             public List<Cliente> Clientes { get; set; } = new();
             public List<Servicio> Servicios { get; set; } = new();
+            public List<Instalador> Instaladores { get; set; } = new();
         }
 
         public async Task SubirCambiosLocalesAsync(DatabaseService db, CancellationToken ct = default)
         {
             var clientes = await db.ObtenerClientesNoSincronizadosAsync(ct);
             var servicios = await db.ObtenerServiciosNoSincronizadosAsync(ct);
+            var instaladores = await db.ObtenerInstaladoresNoSincronizadosAsync(ct);
 
-            if (!clientes.Any() && !servicios.Any())
+            if (!clientes.Any() && !servicios.Any() && !instaladores.Any())
                 return;
 
             var payload = new SyncPayload
             {
                 Clientes = clientes,
-                Servicios = servicios
+                Servicios = servicios,
+                Instaladores = instaladores
             };
 
             var json = JsonSerializer.Serialize(payload);
@@ -307,6 +638,7 @@ namespace LaCasaDelSueloRadianteApp.Services
 
             await db.MarcarClientesComoSincronizadosAsync(clientes.Select(c => c.Id), ct);
             await db.MarcarServiciosComoSincronizadosAsync(servicios.Select(s => s.Id), ct);
+            await db.MarcarInstaladoresComoSincronizadosAsync(instaladores.Select(i => i.Id), ct);
             _logger.LogInformation("Cambios locales subidos y marcados como sincronizados.");
         }
 
@@ -353,6 +685,11 @@ namespace LaCasaDelSueloRadianteApp.Services
                 {
                     foreach (var servicio in payload.Servicios)
                         await db.InsertarOActualizarServicioAsync(servicio, ct);
+                }
+                if (payload?.Instaladores != null)
+                {
+                    foreach (var instalador in payload.Instaladores)
+                        await db.InsertarOActualizarInstaladorAsync(instalador, ct);
                 }
             }
             _logger.LogInformation("Cambios remotos de todos los dispositivos descargados y fusionados.");
@@ -425,7 +762,14 @@ namespace LaCasaDelSueloRadianteApp.Services
             {
                 try
                 {
-                    await SincronizarImagenesAsync();
+                    if (HayConexion())
+                    {
+                        await SincronizarImagenesAsync();
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Sincronización automática de imágenes omitida: sin conexión a Internet");
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -434,6 +778,138 @@ namespace LaCasaDelSueloRadianteApp.Services
             }, null, TimeSpan.Zero, TimeSpan.FromMinutes(2));
 
             _logger.LogInformation("Temporizador de sincronización de imágenes iniciado (cada 2 minutos).");
+        }
+
+        /// <summary>
+        /// Detiene la sincronización automática de imágenes
+        /// </summary>
+        public void DetenerSincronizacionAutomaticaImagenes()
+        {
+            _syncTimerImages?.Change(Timeout.Infinite, 0);
+            _syncTimerImages?.Dispose();
+            _syncTimerImages = null;
+            _logger.LogInformation("Sincronización automática de imágenes detenida.");
+        }
+
+        /// <summary>
+        /// Método de diagnóstico para verificar el estado de sincronización de imágenes
+        /// </summary>
+        public async Task<SyncStatistics> DiagnosticarSincronizacionImagenesAsync(CancellationToken ct = default)
+        {
+            var stats = new SyncStatistics
+            {
+                HayConexion = HayConexion()
+            };
+
+            try
+            {
+                _logger.LogInformation("[DIAGNÓSTICO] Iniciando diagnóstico de sincronización de imágenes...");
+
+                // Verificar directorio local
+                _logger.LogInformation($"[DIAGNÓSTICO] Directorio local: {localImagesPath}");
+                _logger.LogInformation($"[DIAGNÓSTICO] Directorio existe: {Directory.Exists(localImagesPath)}");
+
+                // También verificar directorio base por si hay imágenes mal ubicadas
+                var baseDirectory = AppPaths.BasePath;
+                _logger.LogInformation($"[DIAGNÓSTICO] Directorio base: {baseDirectory}");
+
+                if (Directory.Exists(localImagesPath))
+                {
+                    var imageExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg" };
+                    var localFiles = Directory.GetFiles(localImagesPath)
+                        .Where(file => imageExtensions.Contains(Path.GetExtension(file)))
+                        .ToList();
+
+                    stats.ImagenesLocales = localFiles.Count;
+                    stats.TamañoImagenesLocalesMB = localFiles.Sum(f => new FileInfo(f).Length) / (1024.0 * 1024.0);
+
+                    _logger.LogInformation($"[DIAGNÓSTICO] Imágenes locales: {stats.ImagenesLocales}");
+                    _logger.LogInformation($"[DIAGNÓSTICO] Tamaño total local: {stats.TamañoImagenesLocalesMB:F2} MB");
+
+                    foreach (var file in localFiles.Take(5)) // Solo mostrar las primeras 5
+                    {
+                        var info = new FileInfo(file);
+                        _logger.LogInformation($"[DIAGNÓSTICO] Local: {Path.GetFileName(file)} - {info.LastWriteTimeUtc:yyyy-MM-dd HH:mm:ss} - {info.Length} bytes");
+                    }
+
+                    // Verificar si hay imágenes mal ubicadas en el directorio base
+                    var imagenesEnUbicacionIncorrecta = Directory.GetFiles(baseDirectory)
+                        .Where(file => imageExtensions.Contains(Path.GetExtension(file)))
+                        .Where(file => !file.StartsWith(localImagesPath))
+                        .ToList();
+
+                    if (imagenesEnUbicacionIncorrecta.Any())
+                    {
+                        _logger.LogWarning($"[DIAGNÓSTICO] Imágenes en ubicación INCORRECTA: {imagenesEnUbicacionIncorrecta.Count}");
+                        foreach (var file in imagenesEnUbicacionIncorrecta.Take(3))
+                        {
+                            _logger.LogWarning($"[DIAGNÓSTICO] Mal ubicada: {Path.GetFileName(file)}");
+                        }
+                    }
+                }
+
+                // Verificar archivos remotos si hay conexión
+                if (stats.HayConexion)
+                {
+                    _logger.LogInformation("[DIAGNÓSTICO] Verificando archivos remotos...");
+                    
+                    try
+                    {
+                        await AddAuthHeaderAsync().ConfigureAwait(false);
+                        var remoteFiles = await ObtenerListaImagenesRemotas(ct);
+
+                        stats.ImagenesRemotas = remoteFiles.Count;
+                        stats.TamañoImagenesRemotasMB = remoteFiles.Values.Sum(f => f.Size) / (1024.0 * 1024.0);
+
+                        _logger.LogInformation($"[DIAGNÓSTICO] Imágenes remotas: {stats.ImagenesRemotas}");
+                        _logger.LogInformation($"[DIAGNÓSTICO] Tamaño total remoto: {stats.TamañoImagenesRemotasMB:F2} MB");
+
+                        foreach (var file in remoteFiles.Values.Take(5)) // Solo mostrar las primeras 5
+                        {
+                            _logger.LogInformation($"[DIAGNÓSTICO] Remoto: {file.Name} - {file.LastModified:yyyy-MM-dd HH:mm:ss} - {file.Size} bytes");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "[DIAGNÓSTICO] Error al consultar archivos remotos");
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("[DIAGNÓSTICO] Sin conexión - no se pueden verificar archivos remotos");
+                }
+
+                stats.UltimaSincronizacion = Preferences.ContainsKey("LastSyncTimestamp")
+                    ? DateTime.FromBinary(Preferences.Get("LastSyncTimestamp", 0))
+                    : (DateTime?)null;
+
+                _logger.LogInformation($"[DIAGNÓSTICO] Última sincronización: {stats.UltimaSincronizacion?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Nunca"}");
+                _logger.LogInformation("[DIAGNÓSTICO] Diagnóstico completado.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[DIAGNÓSTICO] Error durante el diagnóstico");
+            }
+
+            return stats;
+        }
+
+        /// <summary>
+        /// Fuerza una sincronización inmediata de imágenes para diagnóstico
+        /// </summary>
+        public async Task ForzarSincronizacionImagenesAsync(CancellationToken ct = default)
+        {
+            _logger.LogInformation("[FORZAR SYNC] Iniciando sincronización forzada de imágenes...");
+            try
+            {
+                await SincronizarImagenesAsync(ct);
+                _logger.LogInformation("[FORZAR SYNC] Sincronización forzada completada.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[FORZAR SYNC] Error en sincronización forzada");
+                throw;
+            }
         }
 
         public async Task<List<SyncQueue>> DescargarSyncQueueDesdeOneDriveAsync(CancellationToken ct = default)
@@ -449,6 +925,7 @@ namespace LaCasaDelSueloRadianteApp.Services
         {
             public string? name { get; set; }
             public DateTimeOffset? lastModifiedDateTime { get; set; }
+            public long? size { get; set; }
         }
 
         public class OneDriveItemsResponse
@@ -461,5 +938,50 @@ namespace LaCasaDelSueloRadianteApp.Services
             public string? UploadUrl { get; set; }
             public DateTimeOffset ExpirationDateTime { get; set; }
         }
+    }
+
+    // --- Clases de soporte para sincronización de imágenes ---
+    public class LocalFileInfo
+    {
+        public string Name { get; set; } = string.Empty;
+        public string FullPath { get; set; } = string.Empty;
+        public DateTime LastModified { get; set; }
+        public long Size { get; set; }
+    }
+
+    public class RemoteFileInfo
+    {
+        public string Name { get; set; } = string.Empty;
+        public DateTime LastModified { get; set; }
+        public long Size { get; set; }
+    }
+
+    public class AccionSincronizacionImagen
+    {
+        public string Archivo { get; set; } = string.Empty;
+        public AccionSincronizacion Accion { get; set; }
+        public string RutaLocal { get; set; } = string.Empty;
+        public string Motivo { get; set; } = string.Empty;
+    }
+
+    public enum AccionSincronizacion
+    {
+        Subir,
+        Descargar,
+        NoAction
+    }
+
+    /// <summary>
+    /// Estadísticas de sincronización para monitoreo
+    /// </summary>
+    public class SyncStatistics
+    {
+        public int ImagenesLocales { get; set; }
+        public int ImagenesRemotas { get; set; }
+        public double TamañoImagenesLocalesMB { get; set; }
+        public double TamañoImagenesRemotasMB { get; set; }
+        public DateTime? UltimaSincronizacion { get; set; }
+        public bool HayConexion { get; set; }
+        public string EstadoSincronizacion => HayConexion ? "Conectado" : "Sin conexión";
     }
 }

@@ -41,9 +41,6 @@ namespace LaCasaDelSueloRadianteApp
 
             _connectivityChangedHandler = HandleConnectivityChanged;
             Connectivity.ConnectivityChanged += _connectivityChangedHandler;
-
-            // Elimina la llamada a MainThread aquí
-            // MainThread.BeginInvokeOnMainThread(async () => await InitializeAsync().ConfigureAwait(false));
         }
 
         protected override void OnStart()
@@ -97,21 +94,13 @@ namespace LaCasaDelSueloRadianteApp
                     return;
                 }
 
-                System.Diagnostics.Debug.WriteLine("[MSAL] Intentando obtener token silencioso...");
+                System.Diagnostics.Debug.WriteLine("[APP] Intentando autenticación silenciosa...");
                 var token = await auth.AcquireTokenSilentAsync().ConfigureAwait(false);
-                System.Diagnostics.Debug.WriteLine($"[MSAL] Token silencioso obtenido: {(token != null)}");
-
-                // Elimina el login interactivo automático
-                // if (token == null)
-                // {
-                //     System.Diagnostics.Debug.WriteLine("[MSAL] Intentando login interactivo...");
-                //     token = await auth.AcquireTokenInteractiveAsync().ConfigureAwait(false);
-                //     System.Diagnostics.Debug.WriteLine($"[MSAL] Login interactivo completado: {(token != null)}");
-                // }
+                System.Diagnostics.Debug.WriteLine($"[APP] ¿Autenticación exitosa? {token != null}");
 
                 MainPage.Dispatcher.Dispatch(() =>
                 {
-                    System.Diagnostics.Debug.WriteLine($"[MSAL] Estableciendo MainPage: {(token != null ? "AppShell" : "LoginPage")}");
+                    System.Diagnostics.Debug.WriteLine($"[APP] Estableciendo MainPage: {(token != null ? "AppShell" : "LoginPage")}");
                     if (token != null)
                     {
                         MainPage = Services.GetRequiredService<AppShell>();
@@ -124,14 +113,46 @@ namespace LaCasaDelSueloRadianteApp
 
                 if (token != null)
                 {
-                    System.Diagnostics.Debug.WriteLine("[SYNC] Autenticación exitosa. Disparando sincronización inicial...");
-                    await VerificarYSincronizarAsync("Inicialización tras login").ConfigureAwait(false);
+                    System.Diagnostics.Debug.WriteLine("[SYNC] Autenticación exitosa. Iniciando sincronización inicial en background...");
+                    
+                    // Iniciar sincronización en background sin bloquear la UI
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await Task.Delay(2000); // Esperar 2 segundos para que la UI se estabilice
+                            await VerificarYSincronizarAsync("Inicialización tras login").ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[SYNC] Error en sincronización inicial: {ex.Message}");
+                        }
+                    });
 
                     if (!_syncTimer.Enabled)
                     {
                         _syncTimer.Start();
                         System.Diagnostics.Debug.WriteLine("[SYNC] Temporizador de sincronización periódica iniciado.");
                     }
+
+                    // Iniciar servicios adicionales en background
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await Task.Delay(1000); // Esperar 1 segundo
+                            var oneDrive = Services.GetService<OneDriveService>();
+                            if (oneDrive != null)
+                            {
+                                oneDrive.IniciarSincronizacionAutomaticaImagenes();
+                                System.Diagnostics.Debug.WriteLine("[SYNC] Sincronización automática de imágenes iniciada (cada 2 minutos).");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[SYNC] Error iniciando servicios adicionales: {ex.Message}");
+                        }
+                    });
                 }
                 else
                 {
@@ -141,6 +162,7 @@ namespace LaCasaDelSueloRadianteApp
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[ERROR] Falla crítica en InitializeAsync: {ex}");
+                System.Diagnostics.Debug.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
                 HandleCriticalError($"Error al inicializar la aplicación: {ex.Message}");
             }
             System.Diagnostics.Debug.WriteLine("[APP] InitializeAsync completado.");
@@ -240,27 +262,34 @@ namespace LaCasaDelSueloRadianteApp
 
                 if (db == null || oneDrive == null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Error: No se pudo resolver DatabaseService o OneDriveService.");
-                    throw new InvalidOperationException("Dependencias de servicio no resueltas para la sincronización.");
+                    System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Error: No se pudieron resolver los servicios de base de datos o OneDrive.");
+                    throw new InvalidOperationException("Servicios de sincronización no resueltos.");
                 }
 
-                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 1: Subiendo/Fusionando SyncQueue (syncqueue.json)...");
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Ejecutando sincronización bilateral completa...");
+                
+                // 1. Bajar cambios desde OneDrive
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 1: Bajando cambios desde OneDrive...");
+                await oneDrive.DescargarYFusionarCambiosDeTodosLosDispositivosAsync(db).ConfigureAwait(false);
+                
+                // 2. Subir cambios locales
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 2: Subiendo cambios locales...");
                 await db.SubirSyncQueueAsync().ConfigureAwait(false);
-                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 1 completado.");
-
-                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 2: Descargando y aplicando SyncQueue de OneDrive...");
-                await db.SincronizarDispositivoNuevoAsync().ConfigureAwait(false);
-                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 2 completado.");
-
-                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 3: Sincronizando registros (IsSynced / sync_*.json)...");
-                await oneDrive.SincronizarRegistrosAsync(db).ConfigureAwait(false);
-                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 3 completado.");
-
-                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 4: Sincronizando imágenes...");
+                await oneDrive.SubirCambiosLocalesAsync(db).ConfigureAwait(false);
+                
+                // 3. Sincronizar imágenes
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 3: Sincronizando imágenes...");
                 await oneDrive.SincronizarImagenesAsync().ConfigureAwait(false);
-                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 4 completado.");
-
-                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Ciclo de sincronización completo finalizado exitosamente.");
+                
+                // 4. Subir versión final de base de datos
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 4: Subiendo versión final de base de datos...");
+                await db.SubirUltimaVersionBaseDeDatosAsync().ConfigureAwait(false);
+                
+                // 5. Limpieza de archivos antiguos
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Paso 5: Realizando limpieza...");
+                await oneDrive.LimpiarArchivosSyncAntiguosAsync(30).ConfigureAwait(false);
+                
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({triggerSource}) Sincronización bilateral completa finalizada exitosamente.");
             }
             catch (Exception ex)
             {
@@ -321,6 +350,10 @@ namespace LaCasaDelSueloRadianteApp
                 await oneDrive.SubirCambiosLocalesAsync(db).ConfigureAwait(false);
                 System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) Registros locales subidos.");
 
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) Subiendo base de datos actualizada...");
+                await db.SubirUltimaVersionBaseDeDatosAsync().ConfigureAwait(false);
+                System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) Base de datos subida.");
+
                 System.Diagnostics.Debug.WriteLine($"[SYNC] ({motivo}) Intento de subida inmediata de cambios finalizado.");
             }
             catch (Exception ex)
@@ -371,6 +404,14 @@ namespace LaCasaDelSueloRadianteApp
                         Connectivity.ConnectivityChanged -= _connectivityChangedHandler;
                         _connectivityChangedHandler = null;
                     }
+
+                    // Detener sincronización automática de imágenes
+                    var oneDrive = Services?.GetService<OneDriveService>();
+                    if (oneDrive != null)
+                    {
+                        oneDrive.DetenerSincronizacionAutomaticaImagenes();
+                    }
+
                     System.Diagnostics.Debug.WriteLine("[APP LIFECYCLE] Dispose: Recursos limpiados.");
                 }
                 _disposed = true;

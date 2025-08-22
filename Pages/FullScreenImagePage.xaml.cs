@@ -1,5 +1,6 @@
 using Microsoft.Maui.Storage;
 using System.IO;
+using LaCasaDelSueloRadianteApp.Services;
 
 namespace LaCasaDelSueloRadianteApp;
 
@@ -11,8 +12,8 @@ public partial class FullScreenImagePage : ContentPage
     {
         InitializeComponent();
 
-        // Construye la ruta completa a la imagen local
-        var fullPath = Path.Combine(FileSystem.AppDataDirectory, fileName);
+        // Construye la ruta completa a la imagen local usando AppPaths.ImagesPath
+        var fullPath = Path.Combine(AppPaths.ImagesPath, fileName);
         MainImage.Source = ImageSource.FromFile(fullPath);
     }
 

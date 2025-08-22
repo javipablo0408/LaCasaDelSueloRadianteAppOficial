@@ -8,10 +8,12 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using LaCasaDelSueloRadianteApp;
+using LaCasaDelSueloRadianteApp.Models;
 
 public class ImageSyncService : IDisposable
 {
-    private readonly string _localFolderPath = @"C:\Users\Javier\AppData\Local\Packages\com.companyname.lacasadelsueloradianteapp_9zz4h110yvjzm\LocalState";
+    private readonly string _localFolderPath = AppPaths.ImagesPath; // Usar el path configurado
     private readonly string _oneDriveFolderPath = "/lacasadelsueloradianteapp/";
     private readonly HttpClient _httpClient;
     private readonly Func<Task<string>> _getAccessToken; // Función para obtener el token de acceso
@@ -138,7 +140,7 @@ public class ImageSyncService : IDisposable
         }
     }
 
-    private async Task<dynamic> GetRemoteFileMetadataAsync(string fileName)
+    private async Task<RemoteFileInfo?> GetRemoteFileMetadataAsync(string fileName)
     {
         var requestUri = $"https://graph.microsoft.com/v1.0/me/drive/root:{_oneDriveFolderPath}{fileName}";
         var response = await _httpClient.GetAsync(requestUri);
@@ -146,13 +148,14 @@ public class ImageSyncService : IDisposable
         if (response.IsSuccessStatusCode)
         {
             var json = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<dynamic>(json);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            return JsonSerializer.Deserialize<RemoteFileInfo>(json, options);
         }
 
         return null;
     }
 
-    private async Task<dynamic[]> GetRemoteFilesAsync()
+    private async Task<RemoteFileInfo[]> GetRemoteFilesAsync()
     {
         var requestUri = $"https://graph.microsoft.com/v1.0/me/drive/root:{_oneDriveFolderPath}:/children";
         var response = await _httpClient.GetAsync(requestUri);
@@ -160,24 +163,25 @@ public class ImageSyncService : IDisposable
         if (response.IsSuccessStatusCode)
         {
             var json = await response.Content.ReadAsStringAsync();
-            var result = JsonSerializer.Deserialize<dynamic>(json);
-            return result?.value?.ToArray() ?? Array.Empty<dynamic>();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var result = JsonSerializer.Deserialize<RemoteFilesResponse>(json, options);
+            return result?.Value?.ToArray() ?? Array.Empty<RemoteFileInfo>();
         }
 
-        return Array.Empty<dynamic>();
+        return Array.Empty<RemoteFileInfo>();
     }
 
-    private bool IsLocalFileNewer(string localFilePath, dynamic remoteFileMetadata)
+    private bool IsLocalFileNewer(string localFilePath, RemoteFileInfo remoteFileMetadata)
     {
         var localLastModified = File.GetLastWriteTimeUtc(localFilePath);
-        var remoteLastModified = DateTime.Parse(remoteFileMetadata.lastModifiedDateTime.ToString());
+        var remoteLastModified = remoteFileMetadata.LastModifiedDateTime;
         return localLastModified > remoteLastModified;
     }
 
-    private bool IsRemoteFileNewer(string localFilePath, dynamic remoteFileMetadata)
+    private bool IsRemoteFileNewer(string localFilePath, RemoteFileInfo remoteFileMetadata)
     {
         var localLastModified = File.GetLastWriteTimeUtc(localFilePath);
-        var remoteLastModified = DateTime.Parse(remoteFileMetadata.lastModifiedDateTime.ToString());
+        var remoteLastModified = remoteFileMetadata.LastModifiedDateTime;
         return remoteLastModified > localLastModified;
     }
 
@@ -185,4 +189,17 @@ public class ImageSyncService : IDisposable
     {
         _syncTimer?.Dispose();
     }
+}
+
+// Clases de modelo para la deserialización
+public class RemoteFileInfo
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public DateTime LastModifiedDateTime { get; set; }
+}
+
+public class RemoteFilesResponse
+{
+    public List<RemoteFileInfo> Value { get; set; } = new();
 }
