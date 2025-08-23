@@ -3,191 +3,560 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:ctrls="clr-namespace:LaCasaDelSueloRadianteApp.Controls"
              x:Class="LaCasaDelSueloRadianteApp.ServicioDetallePage"
-             Title=""
-             BackgroundColor="{DynamicResource PageBackgroundColor}">
+             Title="Detalle del Servicio"
+             BackgroundColor="{StaticResource Gray50}">
 
     <ContentPage.Content>
         <ScrollView>
-            <VerticalStackLayout Padding="20" Spacing="20">
+            <VerticalStackLayout Padding="16" Spacing="24">
 
-                <!-- Título: Cliente -->
-                <Label Text="Cliente"
-                       FontAttributes="Bold"
-                       FontSize="22"
-                       HorizontalOptions="Center"
-                       TextColor="{DynamicResource PrimaryTextColor}" />
-
-                <!-- Datos del cliente -->
-                <Frame BackgroundColor="{DynamicResource SecondaryBackgroundColor}"
-                       Padding="15"
-                       HasShadow="False"
-                       BorderColor="Transparent">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="{Binding Cliente.NombreCliente}" FontSize="16" TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Cliente.Direccion}" FontSize="16" TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Cliente.Telefono}" FontSize="16" TextColor="{DynamicResource SecondaryTextColor}" />
+                <!-- Sección Cliente -->
+                <Frame Style="{StaticResource CardFrame}" BackgroundColor="{StaticResource White}">
+                    <VerticalStackLayout Spacing="16">
+                        <!-- Encabezado de sección -->
+                        <Label Text="Información del Cliente" 
+                               Style="{StaticResource SectionTitle}"/>
+                        
+                        <!-- Datos del cliente -->
+                        <VerticalStackLayout Spacing="8">
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Label Text="Nombre:" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}" 
+                                       VerticalOptions="Center"/>
+                                <Label Text="{Binding Cliente.NombreCliente}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}" 
+                                       VerticalOptions="Center"/>
+                            </StackLayout>
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Label Text="Dirección:" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}" 
+                                       VerticalOptions="Center"/>
+                                <Label Text="{Binding Cliente.Direccion}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}" 
+                                       VerticalOptions="Center"/>
+                            </StackLayout>
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Label Text="Teléfono:" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}" 
+                                       VerticalOptions="Center"/>
+                                <Label Text="{Binding Cliente.Telefono}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}" 
+                                       VerticalOptions="Center"/>
+                            </StackLayout>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Frame>
 
-                <!-- Título: Instalación -->
-                <Label Text="Instalación"
-                       FontAttributes="Bold"
-                       FontSize="22"
-                       HorizontalOptions="Center"
-                       TextColor="{DynamicResource PrimaryTextColor}" />
-
-                <!-- Datos del servicio -->
-                <Frame BackgroundColor="{DynamicResource SecondaryBackgroundColor}"
-                       Padding="15"
-                       HasShadow="False"
-                       BorderColor="Transparent">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="{Binding Servicio.Fecha, StringFormat='Fecha del servicio: {0:dd/MM/yyyy HH:mm}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.TipoServicio, StringFormat='Tipo de servicio: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.TipoInstalacion, StringFormat='Tipo de instalación: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.FuenteCalor, StringFormat='Fuente de calor: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.ProximaVisita, StringFormat='Próxima visita: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.AntiguedadInstalacion, StringFormat='Antigüedad instalación: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.AntiguedadAparatoProduccion, StringFormat='Antigüedad aparato: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.Modelo, StringFormat='Modelo: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.Marca, StringFormat='Marca: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.UltimaRevision, StringFormat='Última revisión: {0}'}" FontSize="14" TextColor="{DynamicResource SecondaryTextColor}" />
+                <!-- Sección Instalación -->
+                <Frame Style="{StaticResource CardFrame}" BackgroundColor="{StaticResource White}">
+                    <VerticalStackLayout Spacing="16">
+                        <!-- Encabezado de sección -->
+                        <Label Text="Datos de la Instalación" 
+                               Style="{StaticResource SectionTitle}"/>
+                        
+                        <!-- Datos del servicio -->
+                        <VerticalStackLayout Spacing="8">
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Label Text="Fecha:" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}"/>
+                                <Label Text="{Binding Servicio.Fecha, StringFormat='{0:dd/MM/yyyy HH:mm}'}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}"/>
+                            </StackLayout>
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Label Text="Tipo de servicio:" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}"/>
+                                <Label Text="{Binding Servicio.TipoServicio}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}"/>
+                            </StackLayout>
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Label Text="Tipo de instalación:" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}"/>
+                                <Label Text="{Binding Servicio.TipoInstalacion}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}"/>
+                            </StackLayout>
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Label Text="Fuente de calor:" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}"/>
+                                <Label Text="{Binding Servicio.FuenteCalor}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}"/>
+                            </StackLayout>
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Label Text="Próxima visita:" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}"/>
+                                <Label Text="{Binding Servicio.ProximaVisita}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}"/>
+                            </StackLayout>
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Label Text="Antigüedad instalación:" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}"/>
+                                <Label Text="{Binding Servicio.AntiguedadInstalacion}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}"/>
+                            </StackLayout>
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Label Text="Antigüedad aparato:" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}"/>
+                                <Label Text="{Binding Servicio.AntiguedadAparatoProduccion}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}"/>
+                            </StackLayout>
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Label Text="Modelo:" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}"/>
+                                <Label Text="{Binding Servicio.Modelo}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}"/>
+                            </StackLayout>
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Label Text="Marca:" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}"/>
+                                <Label Text="{Binding Servicio.Marca}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}"/>
+                            </StackLayout>
+                            
+                            <StackLayout Orientation="Horizontal" Spacing="8">
+                                <Label Text="Última revisión:" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}"/>
+                                <Label Text="{Binding Servicio.UltimaRevision}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}"/>
+                            </StackLayout>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Frame>
 
-                <!-- Título: Valores de la Instalación -->
-                <Label Text="Valores de la Instalación"
-                       FontAttributes="Bold"
-                       FontSize="22"
-                       HorizontalOptions="Center"
-                       TextColor="{DynamicResource PrimaryTextColor}" />
+                <!-- Sección Valores de la Instalación -->
+                <Frame Style="{StaticResource CardFrame}" BackgroundColor="{StaticResource White}">
+                    <VerticalStackLayout Spacing="16">
+                        <!-- Encabezado de sección -->
+                        <Label Text="Valores de la Instalación" 
+                               Style="{StaticResource SectionTitle}"/>
+                        
+                        <!-- Grid mejorado para valores y fotos -->
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="16">
+                            
+                            <!-- pH -->
+                            <VerticalStackLayout Grid.Row="0" Grid.Column="0" VerticalOptions="Center" Spacing="4">
+                                <Label Text="Nivel de pH" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}"/>
+                                <Label Text="{Binding Servicio.ValorPh, StringFormat='{0:F2}'}" 
+                                       FontSize="18" 
+                                       FontAttributes="Bold" 
+                                       TextColor="{StaticResource Primary}"/>
+                                <Label Text="(Normal: 7.0 - 8.5)" 
+                                       FontSize="12" 
+                                       TextColor="{StaticResource Gray500}"/>
+                            </VerticalStackLayout>
+                            <Frame Grid.Row="0" Grid.Column="1" 
+                                   BackgroundColor="{StaticResource Gray100}" 
+                                   Padding="4" 
+                                   CornerRadius="8" 
+                                   HasShadow="False">
+                                <ctrls:MiniImg Url="{Binding Servicio.FotoPhUrl}"
+                                               Tapped="OnImgTapped"
+                                               HeightRequest="80"
+                                               WidthRequest="80"
+                                               VerticalOptions="Center" />
+                            </Frame>
 
-                <!-- Grid para valores y fotos -->
-                <Grid ColumnDefinitions="*,Auto"
-                      RowDefinitions="Auto,Auto,Auto,Auto"
-                      RowSpacing="15">
-                    <!-- Fila 1: pH -->
-                    <Label Grid.Row="0" Grid.Column="0"
-                           Text="{Binding Servicio.ValorPh, StringFormat='pH: {0:F2}'}"
-                           FontSize="16"
-                           VerticalOptions="Center"
-                           TextColor="{DynamicResource SecondaryTextColor}" />
-                    <ctrls:MiniImg Grid.Row="0" Grid.Column="1"
-                                   Url="{Binding Servicio.FotoPhUrl}"
-                                   Tapped="OnImgTapped"
-                                   HeightRequest="100"
-                                   WidthRequest="100"
-                                   VerticalOptions="Center" />
+                            <!-- Conductividad -->
+                            <VerticalStackLayout Grid.Row="1" Grid.Column="0" VerticalOptions="Center" Spacing="4">
+                                <Label Text="Conductividad" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}"/>
+                                <Label Text="{Binding Servicio.ValorConductividad, StringFormat='{0:F2} μS/cm'}" 
+                                       FontSize="18" 
+                                       FontAttributes="Bold" 
+                                       TextColor="{StaticResource Success}"/>
+                                <Label Text="(Normal: 800 - 1300)" 
+                                       FontSize="12" 
+                                       TextColor="{StaticResource Gray500}"/>
+                            </VerticalStackLayout>
+                            <Frame Grid.Row="1" Grid.Column="1" 
+                                   BackgroundColor="{StaticResource Gray100}" 
+                                   Padding="4" 
+                                   CornerRadius="8" 
+                                   HasShadow="False">
+                                <ctrls:MiniImg Url="{Binding Servicio.FotoConductividadUrl}"
+                                               Tapped="OnImgTapped"
+                                               HeightRequest="80"
+                                               WidthRequest="80"
+                                               VerticalOptions="Center" />
+                            </Frame>
 
-                    <!-- Fila 2: Conductividad -->
-                    <Label Grid.Row="1" Grid.Column="0"
-                           Text="{Binding Servicio.ValorConductividad, StringFormat='Conductividad: {0:F2}'}"
-                           FontSize="16"
-                           VerticalOptions="Center"
-                           TextColor="{DynamicResource SecondaryTextColor}" />
-                    <ctrls:MiniImg Grid.Row="1" Grid.Column="1"
-                                   Url="{Binding Servicio.FotoConductividadUrl}"
-                                   Tapped="OnImgTapped"
-                                   HeightRequest="100"
-                                   WidthRequest="100"
-                                   VerticalOptions="Center" />
+                            <!-- Concentración -->
+                            <VerticalStackLayout Grid.Row="2" Grid.Column="0" VerticalOptions="Center" Spacing="4">
+                                <Label Text="Concentración" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}"/>
+                                <Label Text="{Binding Servicio.ValorConcentracion, StringFormat='{0:F2}%'}" 
+                                       FontSize="18" 
+                                       FontAttributes="Bold" 
+                                       TextColor="{StaticResource Warning}"/>
+                                <Label Text="(Normal: 0.5% - 2%)" 
+                                       FontSize="12" 
+                                       TextColor="{StaticResource Gray500}"/>
+                            </VerticalStackLayout>
+                            <Frame Grid.Row="2" Grid.Column="1" 
+                                   BackgroundColor="{StaticResource Gray100}" 
+                                   Padding="4" 
+                                   CornerRadius="8" 
+                                   HasShadow="False">
+                                <ctrls:MiniImg Url="{Binding Servicio.FotoConcentracionUrl}"
+                                               Tapped="OnImgTapped"
+                                               HeightRequest="80"
+                                               WidthRequest="80"
+                                               VerticalOptions="Center" />
+                            </Frame>
 
-                    <!-- Fila 3: Concentración -->
-                    <Label Grid.Row="2" Grid.Column="0"
-                           Text="{Binding Servicio.ValorConcentracion, StringFormat='Concentración: {0:F2}'}"
-                           FontSize="16"
-                           VerticalOptions="Center"
-                           TextColor="{DynamicResource SecondaryTextColor}" />
-                    <ctrls:MiniImg Grid.Row="2" Grid.Column="1"
-                                   Url="{Binding Servicio.FotoConcentracionUrl}"
-                                   Tapped="OnImgTapped"
-                                   HeightRequest="100"
-                                   WidthRequest="100"
-                                   VerticalOptions="Center" />
-
-                    <!-- Fila 4: Turbidez -->
-                    <Label Grid.Row="3" Grid.Column="0"
-                           Text="{Binding Servicio.ValorTurbidez, StringFormat='Turbidez: {0}'}"
-                           FontSize="16"
-                           VerticalOptions="Center"
-                           TextColor="{DynamicResource SecondaryTextColor}" />
-                    <ctrls:MiniImg Grid.Row="3" Grid.Column="1"
-                                   Url="{Binding Servicio.FotoTurbidezUrl}"
-                                   Tapped="OnImgTapped"
-                                   HeightRequest="100"
-                                   WidthRequest="100"
-                                   VerticalOptions="Center" />
-                </Grid>
-
-                <!-- Comentarios -->
-                <Label Text="Comentarios" FontAttributes="Bold" FontSize="18" TextColor="{DynamicResource PrimaryTextColor}" />
-                <Frame BackgroundColor="{DynamicResource SecondaryBackgroundColor}" Padding="10" HasShadow="False" BorderColor="Transparent">
-                    <Label Text="{Binding Servicio.Comentarios}" FontSize="15" TextColor="{DynamicResource SecondaryTextColor}" />
-                </Frame>
-                <Label Text="Comentarios del instalador" FontAttributes="Bold" FontSize="18" TextColor="{DynamicResource PrimaryTextColor}" />
-                <Frame BackgroundColor="{DynamicResource SecondaryBackgroundColor}" Padding="10" HasShadow="False" BorderColor="Transparent">
-                    <Label Text="{Binding Servicio.ComentariosInstalador}" FontSize="15" TextColor="{DynamicResource SecondaryTextColor}" />
-                </Frame>
-
-                <!-- Fotos de instalación (hasta 10) -->
-                <Label Text="Fotos de instalación" FontAttributes="Bold" FontSize="18" TextColor="{DynamicResource PrimaryTextColor}" />
-                <ScrollView Orientation="Horizontal">
-                    <HorizontalStackLayout Spacing="10">
-                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion1Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion1Url, Converter={StaticResource NullToBoolConverter}}" />
-                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion2Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion2Url, Converter={StaticResource NullToBoolConverter}}" />
-                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion3Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion3Url, Converter={StaticResource NullToBoolConverter}}" />
-                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion4Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion4Url, Converter={StaticResource NullToBoolConverter}}" />
-                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion5Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion5Url, Converter={StaticResource NullToBoolConverter}}" />
-                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion6Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion6Url, Converter={StaticResource NullToBoolConverter}}" />
-                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion7Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion7Url, Converter={StaticResource NullToBoolConverter}}" />
-                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion8Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion8Url, Converter={StaticResource NullToBoolConverter}}" />
-                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion9Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion9Url, Converter={StaticResource NullToBoolConverter}}" />
-                        <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion10Url}" Tapped="OnImgTapped" HeightRequest="100" WidthRequest="100" IsVisible="{Binding Servicio.FotoInstalacion10Url, Converter={StaticResource NullToBoolConverter}}" />
-                    </HorizontalStackLayout>
-                </ScrollView>
-
-                <!-- Equipamiento utilizado -->
-                <Label Text="Equipamiento utilizado" FontAttributes="Bold" FontSize="18" TextColor="{DynamicResource PrimaryTextColor}" />
-                <Frame BackgroundColor="{DynamicResource SecondaryBackgroundColor}" Padding="10" HasShadow="False" BorderColor="Transparent">
-                    <Label Text="{Binding Servicio.EquipamientoUtilizado, StringFormat='Equipamiento: {0}'}" FontSize="15" TextColor="{DynamicResource SecondaryTextColor}" />
-                </Frame>
-
-                <!-- Productos utilizados por categoría -->
-                <Label Text="Productos utilizados" FontAttributes="Bold" FontSize="18" TextColor="{DynamicResource PrimaryTextColor}" />
-                <Frame BackgroundColor="{DynamicResource SecondaryBackgroundColor}" Padding="10" HasShadow="False" BorderColor="Transparent">
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="{Binding Servicio.InhibidoresUtilizados, StringFormat='Inhibidores: {0}'}" FontSize="15" TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.LimpiadoresUtilizados, StringFormat='Limpiadores: {0}'}" FontSize="15" TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.BiocidasUtilizados, StringFormat='Biocidas: {0}'}" FontSize="15" TextColor="{DynamicResource SecondaryTextColor}" />
-                        <Label Text="{Binding Servicio.AnticongelantesUtilizados, StringFormat='Anticongelantes: {0}'}" FontSize="15" TextColor="{DynamicResource SecondaryTextColor}" />
+                            <!-- Turbidez -->
+                            <VerticalStackLayout Grid.Row="3" Grid.Column="0" VerticalOptions="Center" Spacing="4">
+                                <Label Text="Turbidez del Agua" 
+                                       FontAttributes="Bold" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray600}"/>
+                                <Label Text="{Binding Servicio.ValorTurbidez, StringFormat='{0} NTU'}" 
+                                       FontSize="18" 
+                                       FontAttributes="Bold" 
+                                       TextColor="{StaticResource Accent}"/>
+                                <Label Text="(Cristalina: &lt; 5 NTU)" 
+                                       FontSize="12" 
+                                       TextColor="{StaticResource Gray500}"/>
+                            </VerticalStackLayout>
+                            <Frame Grid.Row="3" Grid.Column="1" 
+                                   BackgroundColor="{StaticResource Gray100}" 
+                                   Padding="4" 
+                                   CornerRadius="8" 
+                                   HasShadow="False">
+                                <ctrls:MiniImg Url="{Binding Servicio.FotoTurbidezUrl}"
+                                               Tapped="OnImgTapped"
+                                               HeightRequest="80"
+                                               WidthRequest="80"
+                                               VerticalOptions="Center" />
+                            </Frame>
+                        </Grid>
                     </VerticalStackLayout>
                 </Frame>
 
-                <!-- Botón para editar servicio -->
-                <Button
-                    Text="Editar servicio"
-                    Clicked="OnEditarServicioClicked"
-                    BackgroundColor="{DynamicResource Primary}"
-                    TextColor="White"
-                    Margin="0,10,0,0"
-                    HorizontalOptions="Center" />
+                <!-- Sección Comentarios -->
+                <Frame Style="{StaticResource CardFrame}" BackgroundColor="{StaticResource White}">
+                    <VerticalStackLayout Spacing="16">
+                        <!-- Encabezado de sección -->
+                        <Label Text="Observaciones y Comentarios" 
+                               Style="{StaticResource SectionTitle}"/>
+                        
+                        <!-- Comentarios del cliente -->
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Comentarios del cliente" 
+                                   FontAttributes="Bold" 
+                                   FontSize="14" 
+                                   TextColor="{StaticResource Gray700}"/>
+                            <Frame BackgroundColor="{StaticResource Gray50}" 
+                                   Padding="12" 
+                                   HasShadow="False" 
+                                   BorderColor="Transparent" 
+                                   CornerRadius="8">
+                                <Label Text="{Binding Servicio.Comentarios}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}" 
+                                       LineHeight="1.4"/>
+                            </Frame>
+                        </VerticalStackLayout>
+                        
+                        <!-- Comentarios del instalador -->
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Observaciones del técnico" 
+                                   FontAttributes="Bold" 
+                                   FontSize="14" 
+                                   TextColor="{StaticResource Gray700}"/>
+                            <Frame BackgroundColor="{StaticResource Gray50}" 
+                                   Padding="12" 
+                                   HasShadow="False" 
+                                   BorderColor="Transparent" 
+                                   CornerRadius="8">
+                                <Label Text="{Binding Servicio.ComentariosInstalador}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}" 
+                                       LineHeight="1.4"/>
+                            </Frame>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Frame>
 
-                <!-- Botón para generar PDF Premium -->
-                <Button
-                    Text="📊 Generar Informe PDF (Premium)"
-                    Clicked="OnGenerarPdfClicked"
-                    BackgroundColor="{DynamicResource Primary}"
-                    TextColor="White"
-                    CornerRadius="8"
-                    HeightRequest="48"
-                    FontAttributes="Bold"/>
+                <!-- Sección Fotos de Instalación -->
+                <Frame Style="{StaticResource CardFrame}" BackgroundColor="{StaticResource White}">
+                    <VerticalStackLayout Spacing="16">
+                        <!-- Encabezado de sección -->
+                        <Label Text="Galería de Instalación" 
+                               Style="{StaticResource SectionTitle}"/>
+                        
+                        <!-- ScrollView horizontal para fotos -->
+                        <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                            <HorizontalStackLayout Spacing="12" Padding="4">
+                                <Frame BackgroundColor="{StaticResource Gray100}" 
+                                       Padding="4" 
+                                       CornerRadius="12" 
+                                       HasShadow="False"
+                                       IsVisible="{Binding Servicio.FotoInstalacion1Url, Converter={StaticResource NullToBoolConverter}}">
+                                    <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion1Url}" 
+                                                   Tapped="OnImgTapped" 
+                                                   HeightRequest="120" 
+                                                   WidthRequest="120" />
+                                </Frame>
+                                <Frame BackgroundColor="{StaticResource Gray100}" 
+                                       Padding="4" 
+                                       CornerRadius="12" 
+                                       HasShadow="False"
+                                       IsVisible="{Binding Servicio.FotoInstalacion2Url, Converter={StaticResource NullToBoolConverter}}">
+                                    <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion2Url}" 
+                                                   Tapped="OnImgTapped" 
+                                                   HeightRequest="120" 
+                                                   WidthRequest="120" />
+                                </Frame>
+                                <Frame BackgroundColor="{StaticResource Gray100}" 
+                                       Padding="4" 
+                                       CornerRadius="12" 
+                                       HasShadow="False"
+                                       IsVisible="{Binding Servicio.FotoInstalacion3Url, Converter={StaticResource NullToBoolConverter}}">
+                                    <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion3Url}" 
+                                                   Tapped="OnImgTapped" 
+                                                   HeightRequest="120" 
+                                                   WidthRequest="120" />
+                                </Frame>
+                                <Frame BackgroundColor="{StaticResource Gray100}" 
+                                       Padding="4" 
+                                       CornerRadius="12" 
+                                       HasShadow="False"
+                                       IsVisible="{Binding Servicio.FotoInstalacion4Url, Converter={StaticResource NullToBoolConverter}}">
+                                    <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion4Url}" 
+                                                   Tapped="OnImgTapped" 
+                                                   HeightRequest="120" 
+                                                   WidthRequest="120" />
+                                </Frame>
+                                <Frame BackgroundColor="{StaticResource Gray100}" 
+                                       Padding="4" 
+                                       CornerRadius="12" 
+                                       HasShadow="False"
+                                       IsVisible="{Binding Servicio.FotoInstalacion5Url, Converter={StaticResource NullToBoolConverter}}">
+                                    <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion5Url}" 
+                                                   Tapped="OnImgTapped" 
+                                                   HeightRequest="120" 
+                                                   WidthRequest="120" />
+                                </Frame>
+                                <Frame BackgroundColor="{StaticResource Gray100}" 
+                                       Padding="4" 
+                                       CornerRadius="12" 
+                                       HasShadow="False"
+                                       IsVisible="{Binding Servicio.FotoInstalacion6Url, Converter={StaticResource NullToBoolConverter}}">
+                                    <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion6Url}" 
+                                                   Tapped="OnImgTapped" 
+                                                   HeightRequest="120" 
+                                                   WidthRequest="120" />
+                                </Frame>
+                                <Frame BackgroundColor="{StaticResource Gray100}" 
+                                       Padding="4" 
+                                       CornerRadius="12" 
+                                       HasShadow="False"
+                                       IsVisible="{Binding Servicio.FotoInstalacion7Url, Converter={StaticResource NullToBoolConverter}}">
+                                    <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion7Url}" 
+                                                   Tapped="OnImgTapped" 
+                                                   HeightRequest="120" 
+                                                   WidthRequest="120" />
+                                </Frame>
+                                <Frame BackgroundColor="{StaticResource Gray100}" 
+                                       Padding="4" 
+                                       CornerRadius="12" 
+                                       HasShadow="False"
+                                       IsVisible="{Binding Servicio.FotoInstalacion8Url, Converter={StaticResource NullToBoolConverter}}">
+                                    <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion8Url}" 
+                                                   Tapped="OnImgTapped" 
+                                                   HeightRequest="120" 
+                                                   WidthRequest="120" />
+                                </Frame>
+                                <Frame BackgroundColor="{StaticResource Gray100}" 
+                                       Padding="4" 
+                                       CornerRadius="12" 
+                                       HasShadow="False"
+                                       IsVisible="{Binding Servicio.FotoInstalacion9Url, Converter={StaticResource NullToBoolConverter}}">
+                                    <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion9Url}" 
+                                                   Tapped="OnImgTapped" 
+                                                   HeightRequest="120" 
+                                                   WidthRequest="120" />
+                                </Frame>
+                                <Frame BackgroundColor="{StaticResource Gray100}" 
+                                       Padding="4" 
+                                       CornerRadius="12" 
+                                       HasShadow="False"
+                                       IsVisible="{Binding Servicio.FotoInstalacion10Url, Converter={StaticResource NullToBoolConverter}}">
+                                    <ctrls:MiniImg Url="{Binding Servicio.FotoInstalacion10Url}" 
+                                                   Tapped="OnImgTapped" 
+                                                   HeightRequest="120" 
+                                                   WidthRequest="120" />
+                                </Frame>
+                            </HorizontalStackLayout>
+                        </ScrollView>
+                    </VerticalStackLayout>
+                </Frame>
 
-                <!-- Barra de progreso -->
-                <ProgressBar x:Name="DownloadBar"
-                             IsVisible="False"
-                             HeightRequest="6"
-                             BackgroundColor="{DynamicResource SecondaryBackgroundColor}"
-                             ProgressColor="{DynamicResource Primary}" />
+                <!-- Sección Equipamiento y Productos -->
+                <Frame Style="{StaticResource CardFrame}" BackgroundColor="{StaticResource White}">
+                    <VerticalStackLayout Spacing="16">
+                        <!-- Encabezado de sección -->
+                        <Label Text="Equipamiento y Productos" 
+                               Style="{StaticResource SectionTitle}"/>
+                        
+                        <!-- Equipamiento utilizado -->
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Equipamiento utilizado" 
+                                   FontAttributes="Bold" 
+                                   FontSize="14" 
+                                   TextColor="{StaticResource Gray700}"/>
+                            <Frame BackgroundColor="{StaticResource Gray50}" 
+                                   Padding="12" 
+                                   HasShadow="False" 
+                                   BorderColor="Transparent" 
+                                   CornerRadius="8">
+                                <Label Text="{Binding Servicio.EquipamientoUtilizado}" 
+                                       FontSize="14" 
+                                       TextColor="{StaticResource Gray800}"/>
+                            </Frame>
+                        </VerticalStackLayout>
+                        
+                        <!-- Productos por categoría -->
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Productos utilizados por categoría" 
+                                   FontAttributes="Bold" 
+                                   FontSize="14" 
+                                   TextColor="{StaticResource Gray700}"/>
+                            <Frame BackgroundColor="{StaticResource Gray50}" 
+                                   Padding="12" 
+                                   HasShadow="False" 
+                                   BorderColor="Transparent" 
+                                   CornerRadius="8">
+                                <VerticalStackLayout Spacing="8">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                        <Ellipse Grid.Column="0" 
+                                                WidthRequest="8" 
+                                                HeightRequest="8" 
+                                                Fill="{StaticResource Success}" 
+                                                VerticalOptions="Center"/>
+                                        <Label Grid.Column="1" 
+                                               Text="{Binding Servicio.InhibidoresUtilizados, StringFormat='Inhibidores: {0}'}" 
+                                               FontSize="14" 
+                                               TextColor="{StaticResource Gray800}"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                        <Ellipse Grid.Column="0" 
+                                                WidthRequest="8" 
+                                                HeightRequest="8" 
+                                                Fill="{StaticResource Primary}" 
+                                                VerticalOptions="Center"/>
+                                        <Label Grid.Column="1" 
+                                               Text="{Binding Servicio.LimpiadoresUtilizados, StringFormat='Limpiadores: {0}'}" 
+                                               FontSize="14" 
+                                               TextColor="{StaticResource Gray800}"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                        <Ellipse Grid.Column="0" 
+                                                WidthRequest="8" 
+                                                HeightRequest="8" 
+                                                Fill="{StaticResource Warning}" 
+                                                VerticalOptions="Center"/>
+                                        <Label Grid.Column="1" 
+                                               Text="{Binding Servicio.BiocidasUtilizados, StringFormat='Biocidas: {0}'}" 
+                                               FontSize="14" 
+                                               TextColor="{StaticResource Gray800}"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                        <Ellipse Grid.Column="0" 
+                                                WidthRequest="8" 
+                                                HeightRequest="8" 
+                                                Fill="{StaticResource Accent}" 
+                                                VerticalOptions="Center"/>
+                                        <Label Grid.Column="1" 
+                                               Text="{Binding Servicio.AnticongelantesUtilizados, StringFormat='Anticongelantes: {0}'}" 
+                                               FontSize="14" 
+                                               TextColor="{StaticResource Gray800}"/>
+                                    </Grid>
+                                </VerticalStackLayout>
+                            </Frame>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Sección Acciones -->
+                <VerticalStackLayout Spacing="12">
+                    <!-- Botón para editar servicio -->
+                    <Button Text="Editar Servicio"
+                            Clicked="OnEditarServicioClicked"
+                            Style="{StaticResource OutlineButton}"
+                            HorizontalOptions="FillAndExpand"
+                            HeightRequest="48"/>
+
+                    <!-- Botón para generar PDF Premium -->
+                    <Button Text="Generar Informe PDF Premium"
+                            Clicked="OnGenerarPdfClicked"
+                            Style="{StaticResource PrimaryButton}"
+                            HorizontalOptions="FillAndExpand"
+                            HeightRequest="48"/>
+
+                    <!-- Barra de progreso -->
+                    <ProgressBar x:Name="DownloadBar"
+                                 IsVisible="False"
+                                 HeightRequest="8"
+                                 BackgroundColor="{StaticResource Gray200}"
+                                 ProgressColor="{StaticResource Primary}"
+                                 Margin="0,8,0,0"/>
+                </VerticalStackLayout>
             </VerticalStackLayout>
         </ScrollView>
     </ContentPage.Content>

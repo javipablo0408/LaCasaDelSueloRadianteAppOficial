@@ -4,64 +4,62 @@
              Title=""
              BackgroundColor="{AppThemeBinding Light={StaticResource Gray50}, Dark={StaticResource Gray900}}">
 
-    <Grid RowDefinitions="2*,3*,2*" 
-          Padding="24">
+    <ScrollView>
+        <VerticalStackLayout Padding="32" 
+                            Spacing="40" 
+                            VerticalOptions="Center"
+                            MinimumHeightRequest="600">
 
-        <!-- Logo y Título -->
-        <VerticalStackLayout Grid.Row="0" 
-                            VerticalOptions="Center" 
-                            Spacing="20">
-            <Image Source="onedrive_logo"
-                   HeightRequest="100"
-                   WidthRequest="100"
-                   HorizontalOptions="Center"/>
+            <!-- Logo centrado -->
+            <VerticalStackLayout Spacing="24" 
+                                HorizontalOptions="Center"
+                                VerticalOptions="Center">
+                <Image Source="logo.png"
+                       HeightRequest="180"
+                       WidthRequest="180"
+                       Aspect="AspectFit"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"/>
+            </VerticalStackLayout>
 
-            <Label Text="La Casa del Suelo Radiante"
-                   FontSize="24"
-                   FontAttributes="Bold"
-                   HorizontalOptions="Center"/>
-        </VerticalStackLayout>
-
-        <!-- Contenido Principal -->
-        <VerticalStackLayout Grid.Row="1" 
-                            VerticalOptions="Center" 
-                            Spacing="24">
-            <Frame Style="{StaticResource CardFrame}">
-                <VerticalStackLayout Spacing="20">
-                    <Label Text="Acceso Seguro"
-                           Style="{StaticResource SectionTitle}"
-                           HorizontalOptions="Center"/>
-
-                    <Label Text="Utiliza tu cuenta de Microsoft para acceder a todos los documentos y datos de OneDrive de forma segura."
-                           Style="{StaticResource BodyText}"
-                           HorizontalTextAlignment="Center"/>
-
-                    <Button x:Name="loginButton"
-                            Text="Iniciar Sesión con Microsoft"
-                            Style="{StaticResource PrimaryButton}"
-                            BackgroundColor="#0078D4"
-                            HeightRequest="52"
-                            Margin="0,16,0,0"
-                            Clicked="OnLoginClicked"/>
-                </VerticalStackLayout>
-            </Frame>
-
-            <ActivityIndicator x:Name="loadingIndicator"
-                               IsVisible="False"
-                               IsRunning="False"
-                               Color="{StaticResource Primary}"
-                               HeightRequest="40"
-                               WidthRequest="40"
+            <!-- Botón de Login -->
+            <VerticalStackLayout Spacing="20" 
+                                HorizontalOptions="Center">
+                <Frame Style="{StaticResource CardFrame}"
+                       MaximumWidthRequest="350"
+                       HorizontalOptions="Center">
+                    <VerticalStackLayout Spacing="16">
+                        <Label Text="Bienvenido"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource Gray700}"
                                HorizontalOptions="Center"/>
-        </VerticalStackLayout>
 
-        <!-- Footer -->
-        <VerticalStackLayout Grid.Row="2" 
-                            VerticalOptions="End">
-            <Label Text="© 2024 La Casa del Suelo Radiante"
+                        <Button x:Name="loginButton"
+                                Text="Iniciar Sesión con Microsoft"
+                                Style="{StaticResource PrimaryButton}"
+                                BackgroundColor="#0078D4"
+                                HeightRequest="50"
+                                Clicked="OnLoginClicked"/>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <ActivityIndicator x:Name="loadingIndicator"
+                                   IsVisible="False"
+                                   IsRunning="False"
+                                   Color="{StaticResource Primary}"
+                                   HeightRequest="40"
+                                   WidthRequest="40"
+                                   HorizontalOptions="Center"/>
+            </VerticalStackLayout>
+
+            <!-- Footer -->
+            <Label Text="© 2025 La Casa del Suelo Radiante"
                    TextColor="{StaticResource Gray500}"
                    FontSize="12"
-                   HorizontalOptions="Center"/>
+                   HorizontalOptions="Center"
+                   Margin="0,20,0,0"/>
+
         </VerticalStackLayout>
-    </Grid>
+    </ScrollView>
 </ContentPage>
