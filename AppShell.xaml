@@ -3,37 +3,75 @@
        xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
        xmlns:local="clr-namespace:LaCasaDelSueloRadianteApp"
        xmlns:pages="clr-namespace:LaCasaDelSueloRadianteApp.Pages"
-       x:Class="LaCasaDelSueloRadianteApp.AppShell">
+       x:Class="LaCasaDelSueloRadianteApp.AppShell"
+       Shell.FlyoutBehavior="Flyout"
+       FlyoutHeaderBehavior="CollapseOnScroll"
+       Shell.FlyoutBackgroundColor="White"
+       Shell.BackgroundColor="#2563EB"
+       Shell.ForegroundColor="White"
+       Shell.TitleColor="White">
 
-    <!-- Define la barra de pestañas -->
-    <TabBar>
-        <!-- Página Principal -->
-        <Tab Title="Inicio" Icon="home_icon.png">
-            <ShellContent ContentTemplate="{DataTemplate local:MainPage}" />
-        </Tab>
+    <!-- Configuración de estilo del Flyout -->
+    <Shell.FlyoutHeader>
+        <Grid BackgroundColor="#2563EB" HeightRequest="200" Padding="20">
+            <StackLayout VerticalOptions="Center" HorizontalOptions="Center">
+                <Label Text="La Casa del Suelo Radiante" 
+                       FontSize="20" 
+                       FontAttributes="Bold" 
+                       TextColor="White" 
+                       HorizontalOptions="Center" />
+                <Label Text="Menú Principal" 
+                       FontSize="16" 
+                       TextColor="White" 
+                       HorizontalOptions="Center"
+                       Opacity="0.8" />
+            </StackLayout>
+        </Grid>
+    </Shell.FlyoutHeader>
 
-        <!-- Página de Agregar -->
-        <Tab Title="Agregar" Icon="add_icon.png">
-            <ShellContent ContentTemplate="{DataTemplate local:AgregarPage}" />
-        </Tab>
+    <!-- Elementos del menú hamburguesa -->
+    <FlyoutItem Title="Inicio" 
+                Icon="home_icon.png">
+        <ShellContent ContentTemplate="{DataTemplate local:MainPage}" />
+    </FlyoutItem>
 
-        <!-- Página de Clientes -->
-        <Tab Title="Clientes" Icon="clients_icon.png">
-            <ShellContent ContentTemplate="{DataTemplate local:ClientesPage}" />
-        </Tab>
+    <FlyoutItem Title="Agregar" 
+                Icon="add_icon.png">
+        <ShellContent ContentTemplate="{DataTemplate local:AgregarPage}" />
+    </FlyoutItem>
 
-        <!-- Página de Información -->
-        <Tab Title="Información" Icon="info_icon.png">
-            <ShellContent ContentTemplate="{DataTemplate local:InformacionPage}" />
-        </Tab>
+    <FlyoutItem Title="Clientes" 
+                Icon="clients_icon.png">
+        <ShellContent ContentTemplate="{DataTemplate local:ClientesPage}" />
+    </FlyoutItem>
 
-        <Tab Title="Historial" Icon="history_icon.png">
-            <ShellContent ContentTemplate="{DataTemplate pages:HistorialPage}" />
-        </Tab>
+    <FlyoutItem Title="Información" 
+                Icon="info_icon.png">
+        <ShellContent ContentTemplate="{DataTemplate local:InformacionPage}" />
+    </FlyoutItem>
 
-        <Tab Title="Premium" Icon="premium_icon.png">
-            <ShellContent ContentTemplate="{DataTemplate pages:CodigoPremiumPage}" />
-        </Tab>
+    <FlyoutItem Title="Historial" 
+                Icon="history_icon.png">
+        <ShellContent ContentTemplate="{DataTemplate pages:HistorialPage}" />
+    </FlyoutItem>
 
-    </TabBar>
+    <FlyoutItem Title="Premium" 
+                Icon="premium_icon.png">
+        <ShellContent ContentTemplate="{DataTemplate pages:CodigoPremiumPage}" />
+    </FlyoutItem>
+
+    <!-- Footer del flyout -->
+    <Shell.FlyoutFooter>
+        <StackLayout Padding="16" BackgroundColor="#F9FAFB">
+            <Label Text="Versión 1.0" 
+                   FontSize="12" 
+                   TextColor="#6B7280" 
+                   HorizontalOptions="Center" />
+            <Label Text="© 2025 La Casa del Suelo Radiante" 
+                   FontSize="10" 
+                   TextColor="#9CA3AF" 
+                   HorizontalOptions="Center" />
+        </StackLayout>
+    </Shell.FlyoutFooter>
+
 </Shell>
