@@ -34,7 +34,7 @@ public partial class EditarClientePage : ContentPage
                 clienteExistente.Direccion = Cliente.Direccion;
             }
 
-            await DisplayAlert("Éxito", "Cliente actualizado correctamente.", "OK");
+            await DisplayAlert("ï¿½xito", "Cliente actualizado correctamente.", "OK");
             await Navigation.PopAsync();
         });
 

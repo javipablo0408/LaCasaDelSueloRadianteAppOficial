@@ -19,14 +19,20 @@ namespace LaCasaDelSueloRadianteApp.Services
 
         public MauiMsalAuthService()
         {
-            _pca = PublicClientApplicationBuilder
-                    .Create("30af0f82-bbeb-4f49-89cd-3ff526bc339b")
-#if ANDROID || IOS
-                    .WithRedirectUri("msal30af0f82-bbeb-4f49-89cd-3ff526bc339b://auth")
+            var builder = PublicClientApplicationBuilder
+                    .Create("30af0f82-bbeb-4f49-89cd-3ff526bc339b");
+
+#if ANDROID
+            builder = builder.WithRedirectUri("msal30af0f82-bbeb-4f49-89cd-3ff526bc339b://auth");
+#elif IOS
+            builder = builder
+                .WithRedirectUri("msal30af0f82-bbeb-4f49-89cd-3ff526bc339b://auth")
+                .WithIosKeychainSecurityGroup("com.lacasadelsueloradiante.app");
 #else
-                    .WithRedirectUri("http://localhost")
+            builder = builder.WithRedirectUri("http://localhost");
 #endif
-                    .Build();
+
+            _pca = builder.Build();
         }
 
         /*--------------------------------------------------------------
