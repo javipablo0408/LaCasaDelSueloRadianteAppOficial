@@ -144,6 +144,10 @@ namespace LaCasaDelSueloRadianteApp.Services
                 _dbSemaphore.Release();
             }
             await SubirUltimaVersionBaseDeDatosAsync(ct).ConfigureAwait(false);
+            
+            // Forzar sincronización inmediata después de eliminar un cliente
+            ForzarSincronizacionInmediata("Eliminación de cliente");
+            
             return rowsAffected;
         }
 
@@ -176,6 +180,10 @@ namespace LaCasaDelSueloRadianteApp.Services
                 _dbSemaphore.Release();
             }
             await SubirUltimaVersionBaseDeDatosAsync(ct).ConfigureAwait(false);
+            
+            // Forzar sincronización inmediata después de eliminar un servicio
+            ForzarSincronizacionInmediata("Eliminación de servicio");
+            
             return rowsAffected;
         }
         // --- FIN BORRADO LÓGICO ---
@@ -754,6 +762,9 @@ namespace LaCasaDelSueloRadianteApp.Services
                 _dbSemaphore.Release();
             }
             await SubirUltimaVersionBaseDeDatosAsync(ct).ConfigureAwait(false);
+            
+            // Forzar sincronización inmediata después de guardar un cliente
+            ForzarSincronizacionInmediata("Guardado de cliente");
         }
 
         public async Task<int> GuardarServicioAsync(Servicio s, CancellationToken ct = default)
@@ -770,12 +781,19 @@ namespace LaCasaDelSueloRadianteApp.Services
                     {
                         await _conn.InsertAsync(s).ConfigureAwait(false);
                         tipoCambio = "Insert";
+                        _logger.LogInformation("SERVICIO INSERTADO: ID={ServicioId}, Fecha={Fecha}, Cliente={ClienteId}", s.Id, s.Fecha, s.ClienteId);
                     }
                     else
                     {
                         await _conn.UpdateAsync(s).ConfigureAwait(false);
                         tipoCambio = "Update";
+                        _logger.LogInformation("SERVICIO ACTUALIZADO: ID={ServicioId}, Fecha={Fecha}, Cliente={ClienteId}", s.Id, s.Fecha, s.ClienteId);
                     }
+                    
+                    // Marcar como no sincronizado para forzar sincronización
+                    s.IsSynced = false;
+                    await _conn.UpdateAsync(s).ConfigureAwait(false);
+                    
                     await RegistrarEnSyncQueueAsync("Servicio", tipoCambio, s.Id.ToString(), s, ct).ConfigureAwait(false);
                     return s.Id;
                 }
@@ -789,7 +807,19 @@ namespace LaCasaDelSueloRadianteApp.Services
             {
                 _dbSemaphore.Release();
             }
+            
+            // Subir base de datos y forzar sincronización INMEDIATA
             await SubirUltimaVersionBaseDeDatosAsync(ct).ConfigureAwait(false);
+            ForzarSincronizacionInmediata("Guardado de servicio - CRITICO");
+            
+            // Forzar una segunda sincronización después de un delay para asegurar propagación
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(2000); // Espera 2 segundos
+                ForzarSincronizacionInmediata("Guardado de servicio - VERIFICACION");
+            });
+            
+            return s.Id;
         }
 
         public async Task CerrarConexionAsync()
@@ -951,6 +981,89 @@ namespace LaCasaDelSueloRadianteApp.Services
             {
                 _dbSemaphore.Release();
             }
+        }
+
+        /// <summary>
+        /// Verifica si hay cambios pendientes de sincronizar
+        /// </summary>
+        public async Task<bool> HayCambiosPendientesAsync(CancellationToken ct = default)
+        {
+            try
+            {
+                await EnsureConnectionAsync(ct).ConfigureAwait(false);
+                
+                // Verificar syncqueue
+                var cambiosPendientesSyncQueue = await _conn.Table<SyncQueue>().CountAsync().ConfigureAwait(false);
+                
+                // Verificar registros específicamente no sincronizados
+                var clientesNoSync = await _conn.Table<Cliente>().Where(c => !c.IsSynced).CountAsync().ConfigureAwait(false);
+                var serviciosNoSync = await _conn.Table<Servicio>().Where(s => !s.IsSynced).CountAsync().ConfigureAwait(false);
+                var instaNoSync = await _conn.Table<Instalador>().Where(i => !i.IsSynced).CountAsync().ConfigureAwait(false);
+                
+                var totalCambios = cambiosPendientesSyncQueue + clientesNoSync + serviciosNoSync + instaNoSync;
+                
+                _logger.LogInformation("VERIFICACION CAMBIOS PENDIENTES: SyncQueue={SyncQueueCount}, Clientes={ClientesCount}, Servicios={ServiciosCount}, Instaladores={InstaladoresCount}, Total={Total}",
+                    cambiosPendientesSyncQueue, clientesNoSync, serviciosNoSync, instaNoSync, totalCambios);
+                
+                return totalCambios > 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al verificar cambios pendientes");
+                return true; // En caso de error, asumir que hay cambios para forzar sincronización
+            }
+        }
+
+        /// <summary>
+        /// Fuerza una sincronización inmediata en background después de operaciones críticas
+        /// </summary>
+        public void ForzarSincronizacionInmediata(string motivo = "Operación crítica")
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(500); // Pequeño delay para asegurar que la operación local se completó
+                    
+                    // Intentar obtener los servicios desde la app
+                    if (LaCasaDelSueloRadianteApp.App.Services != null)
+                    {
+                        var oneDrive = LaCasaDelSueloRadianteApp.App.Services.GetService<OneDriveService>();
+                        if (oneDrive != null)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[SYNC] [INMEDIATO] Iniciando sincronización inmediata: {motivo}");
+                            _logger.LogInformation("SYNC INMEDIATO INICIADO: {Motivo}", motivo);
+                            
+                            // Primero subir cambios locales
+                            await oneDrive.SubirCambiosLocalesAsync(this);
+                            _logger.LogInformation("SYNC INMEDIATO: Cambios locales subidos");
+                            
+                            // Luego descargar y fusionar cambios de todos los dispositivos
+                            await oneDrive.DescargarYFusionarCambiosDeTodosLosDispositivosAsync(this);
+                            _logger.LogInformation("SYNC INMEDIATO: Cambios remotos descargados y fusionados");
+                            
+                            // Finalmente sincronizar todo (incluye imágenes)
+                            await oneDrive.SincronizarTodoAsync(default, this);
+                            
+                            System.Diagnostics.Debug.WriteLine($"[SYNC] [INMEDIATO] Sincronización inmediata completada: {motivo}");
+                            _logger.LogInformation("SYNC INMEDIATO COMPLETADO: {Motivo}", motivo);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("SYNC INMEDIATO FALLIDO: OneDriveService no disponible");
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("SYNC INMEDIATO FALLIDO: App.Services no disponible");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error en sincronización inmediata: {Motivo}", motivo);
+                    System.Diagnostics.Debug.WriteLine($"[SYNC] [INMEDIATO] ERROR: {ex.Message}");
+                }
+            });
         }
     }
 }

@@ -24,15 +24,39 @@ namespace LaCasaDelSueloRadianteApp
 
             MainPage = new ContentPage
             {
-                Content = new ActivityIndicator
+                Content = new VerticalStackLayout
                 {
-                    IsRunning = true,
+                    Spacing = 20,
                     HorizontalOptions = LayoutOptions.Center,
-                    VerticalOptions = LayoutOptions.Center
+                    VerticalOptions = LayoutOptions.Center,
+                    Children =
+                    {
+                        new ActivityIndicator
+                        {
+                            IsRunning = true,
+                            HorizontalOptions = LayoutOptions.Center,
+                            Color = Colors.Blue
+                        },
+                        new Label
+                        {
+                            Text = "Un momento...",
+                            FontSize = 18,
+                            FontAttributes = FontAttributes.Bold,
+                            HorizontalTextAlignment = TextAlignment.Center,
+                            TextColor = Colors.DarkBlue
+                        },
+                        new Label
+                        {
+                            Text = "Comprobando cambios y sincronizando datos",
+                            FontSize = 14,
+                            HorizontalTextAlignment = TextAlignment.Center,
+                            TextColor = Colors.Gray
+                        }
+                    }
                 }
             };
 
-            _syncTimer = new System.Timers.Timer(TimeSpan.FromMinutes(1).TotalMilliseconds)
+            _syncTimer = new System.Timers.Timer(TimeSpan.FromMinutes(2).TotalMilliseconds) // Cada 2 minutos para sincronización completa
             {
                 AutoReset = true,
                 Enabled = false
@@ -52,8 +76,37 @@ namespace LaCasaDelSueloRadianteApp
 
         private async void OnSyncTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine("[SYNC] [TIMER] Temporizador disparado, iniciando sincronización...");
-            await VerificarYSincronizarAsync("Temporizador periódico").ConfigureAwait(false);
+            System.Diagnostics.Debug.WriteLine("[SYNC] [TIMER] Temporizador disparado, verificando si hay cambios o se necesita sincronización...");
+            
+            // Verificar si hay cambios pendientes O si ha pasado suficiente tiempo desde la última sincronización completa
+            var db = Services.GetService<DatabaseService>();
+            bool deberiaEjecutarSync = true; // Por defecto, ejecutar sincronización
+            
+            if (db != null)
+            {
+                try
+                {
+                    var hayCambiosPendientes = await db.HayCambiosPendientesAsync();
+                    if (!hayCambiosPendientes)
+                    {
+                        // Aún sin cambios locales, ejecutar sincronización cada cierto tiempo para verificar cambios remotos
+                        System.Diagnostics.Debug.WriteLine("[SYNC] [TIMER] No hay cambios locales pendientes, pero ejecutando sincronización para verificar cambios remotos.");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine("[SYNC] [TIMER] Hay cambios pendientes, ejecutando sincronización completa.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SYNC] [TIMER] Error verificando cambios: {ex.Message}. Ejecutando sincronización por seguridad.");
+                }
+            }
+            
+            if (deberiaEjecutarSync)
+            {
+                await VerificarYSincronizarAsync("Temporizador periódico").ConfigureAwait(false);
+            }
         }
 
         private async void HandleConnectivityChanged(object sender, ConnectivityChangedEventArgs e)
@@ -98,18 +151,50 @@ namespace LaCasaDelSueloRadianteApp
                 var token = await auth.AcquireTokenSilentAsync().ConfigureAwait(false);
                 System.Diagnostics.Debug.WriteLine($"[APP] ¿Autenticación exitosa? {token != null}");
 
-                MainPage.Dispatcher.Dispatch(() =>
+                if (token != null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[APP] Estableciendo MainPage: {(token != null ? "AppShell" : "LoginPage")}");
-                    if (token != null)
+                    // Actualizar mensaje de pantalla de carga
+                    MainPage.Dispatcher.Dispatch(() =>
                     {
+                        if (MainPage is ContentPage contentPage && contentPage.Content is VerticalStackLayout layout && layout.Children.Count >= 3)
+                        {
+                            if (layout.Children[2] is Label statusLabel)
+                            {
+                                statusLabel.Text = "Sincronizando cambios con otros dispositivos...";
+                            }
+                        }
+                    });
+
+                    System.Diagnostics.Debug.WriteLine("[SYNC] Autenticación exitosa. Iniciando sincronización completa ANTES de mostrar la interfaz...");
+                    
+                    try
+                    {
+                        // Realizar sincronización completa antes de mostrar la interfaz
+                        await VerificarYSincronizarAsync("Sincronización inicial al abrir app").ConfigureAwait(false);
+                        System.Diagnostics.Debug.WriteLine("[SYNC] Sincronización inicial completada exitosamente.");
+                    }
+                    catch (Exception syncEx)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[SYNC] Error en sincronización inicial: {syncEx.Message}");
+                        // Continuar aunque falle la sincronización inicial
+                    }
+
+                    // Ahora mostrar la interfaz principal
+                    MainPage.Dispatcher.Dispatch(() =>
+                    {
+                        System.Diagnostics.Debug.WriteLine("[APP] Estableciendo MainPage: AppShell (después de sincronización)");
                         MainPage = Services.GetRequiredService<AppShell>();
-                    }
-                    else
+                    });
+                }
+                else
+                {
+                    // Sin autenticación, mostrar login
+                    MainPage.Dispatcher.Dispatch(() =>
                     {
+                        System.Diagnostics.Debug.WriteLine("[APP] Estableciendo MainPage: LoginPage");
                         MainPage = new NavigationPage(Services.GetRequiredService<LoginPage>());
-                    }
-                });
+                    });
+                }
 
                 if (token != null)
                 {
@@ -145,7 +230,7 @@ namespace LaCasaDelSueloRadianteApp
                             if (oneDrive != null)
                             {
                                 oneDrive.IniciarSincronizacionAutomaticaImagenes();
-                                System.Diagnostics.Debug.WriteLine("[SYNC] Sincronización automática de imágenes iniciada (cada 2 minutos).");
+                                System.Diagnostics.Debug.WriteLine("[SYNC] Sincronización automática de imágenes iniciada (cada 10 minutos).");
                             }
                         }
                         catch (Exception ex)
@@ -387,6 +472,21 @@ namespace LaCasaDelSueloRadianteApp
             {
                 System.Diagnostics.Debug.WriteLine("[APP LIFECYCLE] OnResume: Temporizador no iniciado (MainPage no es AppShell o _syncTimer es null).");
             }
+            
+            // Ejecutar sincronización inmediata cuando la app vuelve del background
+            System.Diagnostics.Debug.WriteLine("[APP] Aplicación resumed, ejecutando sincronización para obtener cambios remotos...");
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(1000); // Esperar un segundo para que la app se estabilice
+                    await VerificarYSincronizarAsync("App resumed").ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[APP] Error en sincronización al resumir: {ex.Message}");
+                }
+            });
         }
 
         private bool _disposed = false;

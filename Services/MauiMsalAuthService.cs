@@ -112,4 +112,18 @@ namespace LaCasaDelSueloRadianteApp.Services
         // Elimina el método AcquireTokenAsync para evitar login interactivo automático.
         // Si lo necesitas, úsalo solo en el botón de login, nunca en el arranque de la app.
     }
+
+    // HttpClientFactory personalizado para configurar timeouts
+    // Comentado temporalmente para verificar si causa problemas
+    /*
+    public class HttpClientFactory : IMsalHttpClientFactory
+    {
+        public HttpClient GetHttpClient()
+        {
+            var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromMinutes(2); // Timeout de 2 minutos
+            return httpClient;
+        }
+    }
+    */
 }

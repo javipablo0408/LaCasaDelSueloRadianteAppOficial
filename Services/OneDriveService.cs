@@ -617,82 +617,156 @@ namespace LaCasaDelSueloRadianteApp.Services
 
         public async Task SubirCambiosLocalesAsync(DatabaseService db, CancellationToken ct = default)
         {
-            var clientes = await db.ObtenerClientesNoSincronizadosAsync(ct);
-            var servicios = await db.ObtenerServiciosNoSincronizadosAsync(ct);
-            var instaladores = await db.ObtenerInstaladoresNoSincronizadosAsync(ct);
-
-            if (!clientes.Any() && !servicios.Any() && !instaladores.Any())
-                return;
-
-            var payload = new SyncPayload
+            try
             {
-                Clientes = clientes,
-                Servicios = servicios,
-                Instaladores = instaladores
-            };
+                _logger.LogInformation("[SUBIR CAMBIOS] Iniciando subida de cambios locales...");
+                
+                var clientes = await db.ObtenerClientesNoSincronizadosAsync(ct);
+                var servicios = await db.ObtenerServiciosNoSincronizadosAsync(ct);
+                var instaladores = await db.ObtenerInstaladoresNoSincronizadosAsync(ct);
 
-            var json = JsonSerializer.Serialize(payload);
-            var remotePath = $"{RemoteFolder}/sync_{Environment.MachineName}.json";
-            using var ms = new MemoryStream(Encoding.UTF8.GetBytes(json));
-            await UploadFileAsync(remotePath, ms);
+                _logger.LogInformation("[SUBIR CAMBIOS] Encontrados: {ClientesCount} clientes, {ServiciosCount} servicios, {InstaladoresCount} instaladores no sincronizados",
+                    clientes.Count, servicios.Count, instaladores.Count);
 
-            await db.MarcarClientesComoSincronizadosAsync(clientes.Select(c => c.Id), ct);
-            await db.MarcarServiciosComoSincronizadosAsync(servicios.Select(s => s.Id), ct);
-            await db.MarcarInstaladoresComoSincronizadosAsync(instaladores.Select(i => i.Id), ct);
-            _logger.LogInformation("Cambios locales subidos y marcados como sincronizados.");
+                if (!clientes.Any() && !servicios.Any() && !instaladores.Any())
+                {
+                    _logger.LogInformation("[SUBIR CAMBIOS] No hay cambios locales pendientes.");
+                    return;
+                }
+
+                // Log de servicios específicamente para debug
+                if (servicios.Any())
+                {
+                    _logger.LogInformation("[SUBIR CAMBIOS] Servicios a sincronizar:");
+                    foreach (var servicio in servicios)
+                    {
+                        _logger.LogInformation("  - Servicio ID:{ServicioId}, Cliente:{ClienteId}, Fecha:{Fecha}", 
+                            servicio.Id, servicio.ClienteId, servicio.Fecha);
+                    }
+                }
+
+                var payload = new SyncPayload
+                {
+                    Clientes = clientes,
+                    Servicios = servicios,
+                    Instaladores = instaladores
+                };
+
+                var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+                var remotePath = $"{RemoteFolder}/sync_{Environment.MachineName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json";
+                
+                _logger.LogInformation("[SUBIR CAMBIOS] Subiendo a: {RemotePath}", remotePath);
+                
+                using var ms = new MemoryStream(Encoding.UTF8.GetBytes(json));
+                await UploadFileAsync(remotePath, ms);
+
+                await db.MarcarClientesComoSincronizadosAsync(clientes.Select(c => c.Id), ct);
+                await db.MarcarServiciosComoSincronizadosAsync(servicios.Select(s => s.Id), ct);
+                await db.MarcarInstaladoresComoSincronizadosAsync(instaladores.Select(i => i.Id), ct);
+                
+                _logger.LogInformation("[SUBIR CAMBIOS] Cambios locales subidos y marcados como sincronizados: {ClientesCount} clientes, {ServiciosCount} servicios, {InstaladoresCount} instaladores",
+                    clientes.Count, servicios.Count, instaladores.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SUBIR CAMBIOS] Error al subir cambios locales");
+                throw;
+            }
         }
 
         public async Task DescargarYFusionarCambiosDeTodosLosDispositivosAsync(DatabaseService db, CancellationToken ct = default)
         {
-            await AddAuthHeaderAsync().ConfigureAwait(false);
-            string folderUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{RemoteFolder}:/children";
-            var response = await _http.GetAsync(folderUrl, ct).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
+            try
             {
-                _logger.LogWarning("No se pudo listar archivos de sincronización remota.");
-                return;
+                _logger.LogInformation("[DESCARGAR CAMBIOS] Iniciando descarga de cambios remotos...");
+                
+                await AddAuthHeaderAsync().ConfigureAwait(false);
+                string folderUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{RemoteFolder}:/children";
+                var response = await _http.GetAsync(folderUrl, ct).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("[DESCARGAR CAMBIOS] No se pudo listar archivos de sincronización remota: {StatusCode}", response.StatusCode);
+                    return;
+                }
+
+                var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                var items = JsonSerializer.Deserialize<OneDriveItemsResponse>(json);
+
+                var syncFiles = items?.value
+                    .Where(i => i.name != null && i.name.StartsWith("sync_") && i.name.EndsWith(".json"))
+                    .ToList();
+
+                if (syncFiles == null || syncFiles.Count == 0)
+                {
+                    _logger.LogInformation("[DESCARGAR CAMBIOS] No se encontraron archivos de sincronización remota.");
+                    return;
+                }
+
+                _logger.LogInformation("[DESCARGAR CAMBIOS] Encontrados {Count} archivos de sincronización", syncFiles.Count);
+
+                int totalClientesFusionados = 0;
+                int totalServiciosFusionados = 0;
+                int totalInstaladoresFusionados = 0;
+
+                foreach (var file in syncFiles)
+                {
+                    try
+                    {
+                        _logger.LogInformation("[DESCARGAR CAMBIOS] Procesando archivo: {FileName}", file.name);
+                        
+                        string requestUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{RemoteFolder}/{file.name}:/content";
+                        var fileResponse = await _http.GetAsync(requestUrl, ct).ConfigureAwait(false);
+                        if (!fileResponse.IsSuccessStatusCode)
+                        {
+                            _logger.LogWarning("[DESCARGAR CAMBIOS] No se pudo descargar archivo: {FileName} - {StatusCode}", file.name, fileResponse.StatusCode);
+                            continue;
+                        }
+
+                        var fileJson = await fileResponse.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                        var payload = JsonSerializer.Deserialize<SyncPayload>(fileJson);
+
+                        if (payload?.Clientes != null && payload.Clientes.Any())
+                        {
+                            _logger.LogInformation("[DESCARGAR CAMBIOS] Fusionando {Count} clientes de {FileName}", payload.Clientes.Count, file.name);
+                            foreach (var cliente in payload.Clientes)
+                                await db.InsertarOActualizarClienteAsync(cliente, ct);
+                            totalClientesFusionados += payload.Clientes.Count;
+                        }
+                        
+                        if (payload?.Servicios != null && payload.Servicios.Any())
+                        {
+                            _logger.LogInformation("[DESCARGAR CAMBIOS] Fusionando {Count} servicios de {FileName}", payload.Servicios.Count, file.name);
+                            foreach (var servicio in payload.Servicios)
+                            {
+                                _logger.LogInformation("  - Fusionando Servicio ID:{ServicioId}, Cliente:{ClienteId}, Fecha:{Fecha}", 
+                                    servicio.Id, servicio.ClienteId, servicio.Fecha);
+                                await db.InsertarOActualizarServicioAsync(servicio, ct);
+                            }
+                            totalServiciosFusionados += payload.Servicios.Count;
+                        }
+                        
+                        if (payload?.Instaladores != null && payload.Instaladores.Any())
+                        {
+                            _logger.LogInformation("[DESCARGAR CAMBIOS] Fusionando {Count} instaladores de {FileName}", payload.Instaladores.Count, file.name);
+                            foreach (var instalador in payload.Instaladores)
+                                await db.InsertarOActualizarInstaladorAsync(instalador, ct);
+                            totalInstaladoresFusionados += payload.Instaladores.Count;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "[DESCARGAR CAMBIOS] Error procesando archivo: {FileName}", file.name);
+                    }
+                }
+                
+                _logger.LogInformation("[DESCARGAR CAMBIOS] Fusión completada: {ClientesCount} clientes, {ServiciosCount} servicios, {InstaladoresCount} instaladores",
+                    totalClientesFusionados, totalServiciosFusionados, totalInstaladoresFusionados);
             }
-
-            var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            var items = JsonSerializer.Deserialize<OneDriveItemsResponse>(json);
-
-            var syncFiles = items?.value
-                .Where(i => i.name != null && i.name.StartsWith("sync_") && i.name.EndsWith(".json"))
-                .ToList();
-
-            if (syncFiles == null || syncFiles.Count == 0)
+            catch (Exception ex)
             {
-                _logger.LogInformation("No se encontraron archivos de sincronización remota.");
-                return;
+                _logger.LogError(ex, "[DESCARGAR CAMBIOS] Error general al descargar y fusionar cambios");
+                throw;
             }
-
-            foreach (var file in syncFiles)
-            {
-                string requestUrl = $"https://graph.microsoft.com/v1.0/me/drive/root:/{RemoteFolder}/{file.name}:/content";
-                var fileResponse = await _http.GetAsync(requestUrl, ct).ConfigureAwait(false);
-                if (!fileResponse.IsSuccessStatusCode)
-                    continue;
-
-                var fileJson = await fileResponse.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                var payload = JsonSerializer.Deserialize<SyncPayload>(fileJson);
-
-                if (payload?.Clientes != null)
-                {
-                    foreach (var cliente in payload.Clientes)
-                        await db.InsertarOActualizarClienteAsync(cliente, ct);
-                }
-                if (payload?.Servicios != null)
-                {
-                    foreach (var servicio in payload.Servicios)
-                        await db.InsertarOActualizarServicioAsync(servicio, ct);
-                }
-                if (payload?.Instaladores != null)
-                {
-                    foreach (var instalador in payload.Instaladores)
-                        await db.InsertarOActualizarInstaladorAsync(instalador, ct);
-                }
-            }
-            _logger.LogInformation("Cambios remotos de todos los dispositivos descargados y fusionados.");
         }
 
         public async Task SincronizarRegistrosAsync(DatabaseService db, CancellationToken ct = default)
@@ -775,9 +849,9 @@ namespace LaCasaDelSueloRadianteApp.Services
                 {
                     _logger.LogError(ex, "Error en la sincronización automática de imágenes");
                 }
-            }, null, TimeSpan.Zero, TimeSpan.FromMinutes(2));
+            }, null, TimeSpan.Zero, TimeSpan.FromMinutes(3)); // Cada 3 minutos para imágenes específicamente
 
-            _logger.LogInformation("Temporizador de sincronización de imágenes iniciado (cada 2 minutos).");
+            _logger.LogInformation("Temporizador de sincronización de imágenes iniciado (cada 3 minutos).");
         }
 
         /// <summary>

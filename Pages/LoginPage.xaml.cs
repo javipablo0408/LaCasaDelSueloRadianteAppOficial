@@ -28,36 +28,53 @@ namespace LaCasaDelSueloRadianteApp
                 loadingIndicator.IsVisible = true;
                 loadingIndicator.IsRunning = true;
 
+                System.Diagnostics.Debug.WriteLine("[LOGIN] Iniciando proceso de login");
+
                 // 1) Intento Silent
+                System.Diagnostics.Debug.WriteLine("[LOGIN] Intentando login silencioso");
                 var result = await _authService.AcquireTokenSilentAsync();
 
-                // 2) Si Silent devuelve null ? Interactive
+                // 2) Si Silent devuelve null ‚Üí Interactive
                 if (result == null)
                 {
+                    System.Diagnostics.Debug.WriteLine("[LOGIN] Login silencioso fall√≥, intentando login interactivo");
                     result = await _authService.AcquireTokenInteractiveAsync();
                 }
 
                 if (result != null)
                 {
-                    // Marca que ya iniciÛ sesiÛn
+                    System.Diagnostics.Debug.WriteLine("[LOGIN] Login exitoso");
+                    // Marca que ya inici√≥ sesi√≥n
                     Preferences.Default.Set("IsLoggedIn", true);
 
-                    // Navega al AppShell (pestaÒas)
+                    // Navega al AppShell (pesta√±as)
                     var appShell = _services.GetRequiredService<AppShell>();
-                    Application.Current.MainPage = appShell;
+                    Application.Current!.MainPage = appShell;
                 }
                 else
                 {
-                    await DisplayAlert("Inicio de sesiÛn",
-                        "No se pudo obtener un token v·lido.",
+                    System.Diagnostics.Debug.WriteLine("[LOGIN] Login fall√≥ - resultado null");
+                    await DisplayAlert("Inicio de sesi√≥n",
+                        "No se pudo obtener un token v√°lido.",
                         "OK");
                 }
             }
+            catch (InvalidOperationException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[LOGIN] Error de operaci√≥n: {ex.Message}");
+                await DisplayAlert(
+                    "Error de inicio de sesi√≥n",
+                    ex.Message,
+                    "OK"
+                );
+            }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[LOGIN] Error general: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[LOGIN] StackTrace: {ex.StackTrace}");
                 await DisplayAlert(
-                    "Error de inicio de sesiÛn",
-                    $"No se pudo iniciar sesiÛn: {ex.Message}",
+                    "Error de inicio de sesi√≥n",
+                    $"Error inesperado: {ex.Message}",
                     "OK"
                 );
             }
@@ -67,6 +84,7 @@ namespace LaCasaDelSueloRadianteApp
                 loginButton.IsEnabled = true;
                 loadingIndicator.IsRunning = false;
                 loadingIndicator.IsVisible = false;
+                System.Diagnostics.Debug.WriteLine("[LOGIN] Proceso de login finalizado");
             }
         }
     }

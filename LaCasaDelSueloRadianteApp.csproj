@@ -164,4 +164,8 @@
 	  </MauiXaml>
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="Platforms\Android\Resources\xml\" />
+	</ItemGroup>
+
 </Project>
